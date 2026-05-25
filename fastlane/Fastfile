@@ -3,11 +3,15 @@ require "shellwords"
 default_platform(:ios)
 
 platform :ios do
+  root = File.expand_path("..", __dir__)
   app_identifier = "com.yushang.poseframe3d"
   team_id = "7H7ZUG2WX8"
   api_key_path = File.expand_path("../../永久列管/AuthKey_WZBYHD6QVD.p8", __dir__)
-  output_dir = "Build"
+  output_dir = File.join(root, "Build")
   ipa_path = File.join(output_dir, "PoseFrameStudio.ipa")
+  xcodeproj_path = File.join(root, "PoseReferenceApp.xcodeproj")
+  metadata_path = File.join(root, "fastlane/metadata")
+  screenshots_path = File.join(root, "fastlane/screenshots")
 
   api_key = lambda do
     app_store_connect_api_key(
@@ -21,18 +25,23 @@ platform :ios do
 
   desc "Run local App Store readiness checks."
   lane :verify do
-    sh("ruby", "Scripts/verify_submission_readiness.rb")
-    sh("plutil", "-lint", "PoseReferenceApp/Resources/PrivacyInfo.xcprivacy")
+    sh("ruby", File.join(root, "Scripts/verify_submission_readiness.rb"))
+    sh("plutil", "-lint", File.join(root, "PoseReferenceApp/Resources/PrivacyInfo.xcprivacy"))
   end
 
   desc "Create or verify App Store Connect app and IAP records through the App Store Connect API."
   lane :ensure_asc_records do
-    sh("ruby", "Scripts/ensure_app_store_connect_records.rb")
+    sh("ruby", File.join(root, "Scripts/ensure_app_store_connect_records.rb"))
+  end
+
+  desc "Create and install the App Store provisioning profile used to export the IPA."
+  lane :ensure_profile do
+    sh("ruby", File.join(root, "Scripts/ensure_app_store_profile.rb"))
   end
 
   desc "Capture iPhone 6.9-inch and iPad 13-inch App Store screenshots."
   lane :screenshots do
-    sh("ruby", "Scripts/capture_appstore_screenshots.rb")
+    sh("ruby", File.join(root, "Scripts/capture_appstore_screenshots.rb"))
   end
 
   desc "Upload metadata, privacy/support URLs, review info, and screenshots without binary."
@@ -41,8 +50,8 @@ platform :ios do
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
-      metadata_path: "fastlane/metadata",
-      screenshots_path: "fastlane/screenshots",
+      metadata_path: metadata_path,
+      screenshots_path: screenshots_path,
       skip_binary_upload: true,
       skip_metadata: false,
       skip_screenshots: false,
@@ -56,9 +65,10 @@ platform :ios do
   desc "Build a signed App Store IPA."
   lane :build_ipa do
     verify
-    increment_build_number(xcodeproj: "PoseReferenceApp.xcodeproj")
+    ensure_profile
+    increment_build_number(xcodeproj: xcodeproj_path)
     build_app(
-      project: "PoseReferenceApp.xcodeproj",
+      project: xcodeproj_path,
       scheme: "PoseReferenceApp",
       configuration: "Release",
       export_method: "app-store",
@@ -68,11 +78,13 @@ platform :ios do
       include_bitcode: false,
       export_options: {
         method: "app-store",
-        signingStyle: "automatic",
-        teamID: team_id
+        signingStyle: "manual",
+        teamID: team_id,
+        provisioningProfiles: {
+          app_identifier => "PoseFrame Studio App Store"
+        }
       },
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path.shellescape} -authenticationKeyID WZBYHD6QVD -authenticationKeyIssuerID 69a6de78-ba5a-47e3-e053-5b8c7c11a4d1",
-      export_xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path.shellescape} -authenticationKeyID WZBYHD6QVD -authenticationKeyIssuerID 69a6de78-ba5a-47e3-e053-5b8c7c11a4d1"
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path.shellescape} -authenticationKeyID WZBYHD6QVD -authenticationKeyIssuerID 69a6de78-ba5a-47e3-e053-5b8c7c11a4d1"
     )
   end
 
@@ -85,8 +97,8 @@ platform :ios do
       api_key: api_key.call,
       app_identifier: app_identifier,
       ipa: ipa_path,
-      metadata_path: "fastlane/metadata",
-      screenshots_path: "fastlane/screenshots",
+      metadata_path: metadata_path,
+      screenshots_path: screenshots_path,
       skip_binary_upload: false,
       skip_metadata: false,
       skip_screenshots: false,
@@ -103,8 +115,8 @@ platform :ios do
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
-      metadata_path: "fastlane/metadata",
-      screenshots_path: "fastlane/screenshots",
+      metadata_path: metadata_path,
+      screenshots_path: screenshots_path,
       skip_binary_upload: true,
       skip_metadata: false,
       skip_screenshots: false,
