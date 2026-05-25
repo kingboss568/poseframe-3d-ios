@@ -27,6 +27,7 @@ end
 project = read("PoseReferenceApp.xcodeproj/project.pbxproj")
 listing = read("AppStore/AppStoreListing.zh-Hant.md")
 review = read("AppStore/ReviewNotes.zh-Hant.md")
+checklist = read("AppStore/ComplianceChecklist.zh-Hant.md")
 privacy = read("AppStore/PrivacyPolicy.zh-Hant.md")
 content = read("PoseReferenceApp/Views/ContentView.swift")
 app_state = read("PoseReferenceApp/State/AppState.swift")
@@ -38,6 +39,9 @@ assert(app_state.include?(%Q(static let proProductID = "#{PRODUCT_ID}")), "Store
 assert(listing.include?(PRODUCT_ID), "listing mentions IAP product id")
 assert(review.include?(PRODUCT_ID), "review notes mention IAP product id")
 assert(!review.include?("無 IAP"), "review notes do not claim there is no IAP")
+assert(checklist.include?(BUNDLE_ID), "compliance checklist uses current Bundle ID")
+assert(!checklist.include?("com.poseframe3d.referenceapp"), "compliance checklist does not mention old Bundle ID")
+assert(![listing, review, checklist].join("\n").include?("無 IAP"), "App Store docs do not claim there is no IAP")
 
 assert_file("AppStore/Support.zh-Hant.md")
 assert_file("docs/privacy.html")
