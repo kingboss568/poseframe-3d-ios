@@ -1,0 +1,124 @@
+require "shellwords"
+
+default_platform(:ios)
+
+platform :ios do
+  app_identifier = "com.yushang.poseframe3d"
+  team_id = "7H7ZUG2WX8"
+  api_key_path = File.expand_path("../../永久列管/AuthKey_WZBYHD6QVD.p8", __dir__)
+  output_dir = "Build"
+  ipa_path = File.join(output_dir, "PoseFrameStudio.ipa")
+
+  api_key = lambda do
+    app_store_connect_api_key(
+      key_id: "WZBYHD6QVD",
+      issuer_id: "69a6de78-ba5a-47e3-e053-5b8c7c11a4d1",
+      key_filepath: api_key_path,
+      duration: 1200,
+      in_house: false
+    )
+  end
+
+  desc "Run local App Store readiness checks."
+  lane :verify do
+    sh("ruby", "Scripts/verify_submission_readiness.rb")
+    sh("plutil", "-lint", "PoseReferenceApp/Resources/PrivacyInfo.xcprivacy")
+  end
+
+  desc "Create or verify App Store Connect app and IAP records through the App Store Connect API."
+  lane :ensure_asc_records do
+    sh("ruby", "Scripts/ensure_app_store_connect_records.rb")
+  end
+
+  desc "Capture iPhone 6.9-inch and iPad 13-inch App Store screenshots."
+  lane :screenshots do
+    sh("ruby", "Scripts/capture_appstore_screenshots.rb")
+  end
+
+  desc "Upload metadata, privacy/support URLs, review info, and screenshots without binary."
+  lane :metadata do
+    verify
+    deliver(
+      api_key: api_key.call,
+      app_identifier: app_identifier,
+      metadata_path: "fastlane/metadata",
+      screenshots_path: "fastlane/screenshots",
+      skip_binary_upload: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: false,
+      automatic_release: true,
+      force: true,
+      precheck_include_in_app_purchases: true
+    )
+  end
+
+  desc "Build a signed App Store IPA."
+  lane :build_ipa do
+    verify
+    increment_build_number(xcodeproj: "PoseReferenceApp.xcodeproj")
+    build_app(
+      project: "PoseReferenceApp.xcodeproj",
+      scheme: "PoseReferenceApp",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: output_dir,
+      output_name: "PoseFrameStudio.ipa",
+      clean: true,
+      include_bitcode: false,
+      export_options: {
+        method: "app-store",
+        signingStyle: "automatic",
+        teamID: team_id
+      },
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path.shellescape} -authenticationKeyID WZBYHD6QVD -authenticationKeyIssuerID 69a6de78-ba5a-47e3-e053-5b8c7c11a4d1",
+      export_xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path.shellescape} -authenticationKeyID WZBYHD6QVD -authenticationKeyIssuerID 69a6de78-ba5a-47e3-e053-5b8c7c11a4d1"
+    )
+  end
+
+  desc "Build and upload metadata, screenshots, and IPA; do not submit for review."
+  lane :upload do
+    ensure_asc_records
+    screenshots
+    build_ipa
+    deliver(
+      api_key: api_key.call,
+      app_identifier: app_identifier,
+      ipa: ipa_path,
+      metadata_path: "fastlane/metadata",
+      screenshots_path: "fastlane/screenshots",
+      skip_binary_upload: false,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: false,
+      automatic_release: true,
+      force: true,
+      precheck_include_in_app_purchases: true
+    )
+  end
+
+  desc "Upload all App Store material and submit the app version for review."
+  lane :release do
+    upload
+    deliver(
+      api_key: api_key.call,
+      app_identifier: app_identifier,
+      metadata_path: "fastlane/metadata",
+      screenshots_path: "fastlane/screenshots",
+      skip_binary_upload: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: true,
+      automatic_release: true,
+      force: true,
+      precheck_include_in_app_purchases: true,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false,
+        export_compliance_encryption_updated: false,
+        content_rights_contains_third_party_content: false,
+        content_rights_has_rights: true
+      }
+    )
+  end
+end

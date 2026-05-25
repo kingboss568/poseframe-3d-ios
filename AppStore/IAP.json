@@ -1,0 +1,15 @@
+{
+  "product_id": "com.yushang.poseframe3d.pro",
+  "reference_name": "PoseFrame Studio Pro",
+  "type": "non_consumable",
+  "display_name": {
+    "zh-Hant": "PoseFrame Studio Pro",
+    "en-US": "PoseFrame Studio Pro"
+  },
+  "description": {
+    "zh-Hant": "一次解鎖商稿角色、進階姿勢、構圖輔助、透明 PNG 與多視角輸出。",
+    "en-US": "One-time unlock for editorial characters, advanced poses, composition guides, transparent PNG export, and multi-angle references."
+  },
+  "review_note": "The app displays the official StoreKit price returned by App Store Connect. Do not hard-code a price in app metadata or UI.",
+  "pricing_note": "Set the final non-consumable price in App Store Connect before attaching this IAP to the app version for review."
+}

@@ -1,0 +1,14 @@
+.DS_Store
+._*
+.build/
+Build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.log
+*.xcresult
+PoseReferenceApp.xcodeproj/xcuserdata/
+PoseReferenceApp.xcodeproj/project.xcworkspace/xcuserdata/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.html
