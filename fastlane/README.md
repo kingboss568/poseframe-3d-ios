@@ -71,6 +71,22 @@ Build a signed App Store IPA.
 
 Build and upload metadata, screenshots, and IPA; do not submit for review.
 
+### ios upload_existing_ipa
+
+```sh
+[bundle exec] fastlane ios upload_existing_ipa
+```
+
+Upload the existing IPA, metadata, and screenshots without rebuilding.
+
+### ios upload_ipa_only
+
+```sh
+[bundle exec] fastlane ios upload_ipa_only
+```
+
+Upload only the existing IPA, leaving metadata and screenshots untouched.
+
 ### ios release
 
 ```sh

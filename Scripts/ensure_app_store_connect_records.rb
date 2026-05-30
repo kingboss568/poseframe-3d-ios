@@ -12,7 +12,7 @@ KEY_ID = "WZBYHD6QVD"
 KEY_PATH = File.expand_path("../../永久列管/AuthKey_WZBYHD6QVD.p8", __dir__)
 BUNDLE_ID = "com.yushang.poseframe3d"
 APP_NAME = "PoseFrame Studio"
-SKU = "POSEFRAME3D-2026"
+SKU = "com.yushang.poseframe3d"
 IAP_PRODUCT_ID = "com.yushang.poseframe3d.pro"
 
 class AppStoreConnectClient

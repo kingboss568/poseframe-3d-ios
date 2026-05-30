@@ -60,7 +60,7 @@ platform :ios do
       submit_for_review: false,
       automatic_release: true,
       force: true,
-      precheck_include_in_app_purchases: true
+      precheck_include_in_app_purchases: false
     )
   end
 
@@ -107,7 +107,45 @@ platform :ios do
       submit_for_review: false,
       automatic_release: true,
       force: true,
-      precheck_include_in_app_purchases: true
+      precheck_include_in_app_purchases: false
+    )
+  end
+
+  desc "Upload the existing IPA, metadata, and screenshots without rebuilding."
+  lane :upload_existing_ipa do
+    ensure_asc_records
+    verify
+    deliver(
+      api_key: api_key.call,
+      app_identifier: app_identifier,
+      ipa: ipa_path,
+      metadata_path: metadata_path,
+      screenshots_path: screenshots_path,
+      skip_binary_upload: false,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: false,
+      automatic_release: true,
+      force: true,
+      precheck_include_in_app_purchases: false
+    )
+  end
+
+  desc "Upload only the existing IPA, leaving metadata and screenshots untouched."
+  lane :upload_ipa_only do
+    ensure_asc_records
+    verify
+    deliver(
+      api_key: api_key.call,
+      app_identifier: app_identifier,
+      ipa: ipa_path,
+      skip_binary_upload: false,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: false,
+      automatic_release: true,
+      force: true,
+      precheck_include_in_app_purchases: false
     )
   end
 
@@ -125,7 +163,7 @@ platform :ios do
       submit_for_review: true,
       automatic_release: true,
       force: true,
-      precheck_include_in_app_purchases: true,
+      precheck_include_in_app_purchases: false,
       submission_information: {
         add_id_info_uses_idfa: false,
         export_compliance_uses_encryption: false,

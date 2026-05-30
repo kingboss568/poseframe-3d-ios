@@ -1,10 +1,7 @@
 app_identifier("com.yushang.poseframe3d")
 metadata_path("./fastlane/metadata")
 screenshots_path("./fastlane/screenshots")
-privacy_url("https://kingboss568.github.io/poseframe-3d-ios/privacy.html")
-support_url("https://kingboss568.github.io/poseframe-3d-ios/support.html")
 submit_for_review(false)
 automatic_release(true)
 force(true)
 precheck_include_in_app_purchases(true)
-

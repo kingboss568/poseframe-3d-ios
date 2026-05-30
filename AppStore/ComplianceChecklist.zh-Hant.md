@@ -1,6 +1,6 @@
 # App Store 上架檢核清單
 
-更新日期：2026-05-25
+更新日期：2026-05-30
 
 ## 已完成並已驗證
 
@@ -18,28 +18,25 @@
 - 截圖腳本已加入 PNG 驗證、空白圖重試與 `._*` 隱藏檔清理。
 - App Store provisioning profile 已建立並安裝：`PoseFrame Studio App Store`。
 - fastlane `ios verify` 通過。
-- fastlane `ios build_ipa` 已成功輸出簽名 IPA：`Build/PoseFrameStudio.ipa`，build number `4`。
+- fastlane `ios build_ipa` 已成功輸出簽名 IPA：`Build/PoseFrameStudio.ipa`，build number `6`。
 - IPA 內含 `PrivacyInfo.xcprivacy`，簽名為 `Apple Distribution: Yu Shiung Jiang (7H7ZUG2WX8)`。
+- ASC API 已確認 build `6` 狀態為 `VALID` / `APP_STORE_ELIGIBLE`，並已綁定到 iOS 版本 `1.0`。
+- fastlane `ios metadata` 已成功上傳 metadata 與 iPhone 6.9 / iPad 13 截圖，precheck 無問題。
+- App Store Connect app record 已建立，Apple ID：`6774984271`，SKU：`com.yushang.poseframe3d`。
+- IAP 商品已由 ASC API 建立，Product ID：`com.yushang.poseframe3d.pro`，ASC IAP ID：`6774986385`，狀態 `READY_TO_SUBMIT`。
+- IAP 已設定 USA base territory 價格 `USD 4.99`，Apple 已自動產生其他地區價格。
+- IAP review note、availability 與 App Review screenshot 已上傳；付款頁截圖檔名：`iphone69_06_pro_purchase.png`。
 - iPad 已設定支援四方向，避免「非全螢幕 iPad App 必須支援所有方向」警告。
 
 ## 尚未完成 / 送審阻塞
 
-- App Store Connect app record 尚未建立。ASC API key 可建立 Bundle ID 與 provisioning profile，但 Apple API 回覆 `apps` 不允許 `CREATE`，因此無法用此 API key 建立 app record。
-- 因 app record 尚不存在，IAP 商品尚無法在 App Store Connect app 底下建立、設定價格或附加到版本。
-- 因 app record 尚不存在，metadata、screenshots、IPA 尚未能上傳到 App Store Connect，也尚未送出審查。
-- Comet UI 流程需要 Mac 解鎖後才能操作；目前本機畫面停在鎖定畫面，無法安全操作 ASC 表單。
+- 尚未按下最後「送出審查」。依上架技能規範，最後 submit 需要使用者明確確認。
+- 送審前仍建議在 Comet 最後目視確認年齡分級、類別與 IAP 是否顯示在版本頁。
 
 ## 下一步
 
-1. 解鎖 Mac，使用 Comet 開啟 App Store Connect。
-2. 在 App Store Connect 手動建立 app record：
-   - Name：PoseFrame Studio
-   - Bundle ID：`com.yushang.poseframe3d`
-   - SKU：`POSEFRAME3D-2026`
-   - Primary locale：繁體中文
-3. 建立 non-consumable IAP：`com.yushang.poseframe3d.pro`，填入名稱、描述、價格，並附加到 app version。
-4. 回到本 repo 執行 `fastlane ios upload` 上傳 metadata、screenshots、IPA。
-5. App Store Connect 確認 build processing 完成、IAP 可提交後，再執行 `fastlane ios release` 或在 Comet 中送出審查。
+1. 使用 Comet 打開 App Store Connect 版本頁，確認 build `6`、IAP `PoseFrame Studio Pro`、年齡分級、類別與審查資訊。
+2. 使用者明確確認後，再執行 `fastlane ios release` 或在 Comet 中送出審查。
 
 ## 審查風險提醒
 
