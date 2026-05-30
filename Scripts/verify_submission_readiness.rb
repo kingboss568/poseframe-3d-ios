@@ -92,9 +92,11 @@ end
 assert(missing_models.empty?, "all 8 Rocketbox USDZ model files are present; missing: #{missing_models.join(', ')}")
 
 apple_double_roots = %w[
+  AppStore
+  docs
   PoseReferenceApp/Resources/Models
   Screenshots
-  fastlane/screenshots
+  fastlane
 ]
 apple_double_files = apple_double_roots.flat_map do |relative|
   Dir.glob(File.join(ROOT, relative, "**/._*"))
