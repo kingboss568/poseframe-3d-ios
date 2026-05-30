@@ -1,18 +1,18 @@
 import SwiftUI
 
 enum AppTheme {
-    static let background = Color(red: 0.95, green: 0.96, blue: 0.94)
-    static let surface = Color(red: 0.99, green: 0.985, blue: 0.96)
-    static let ink = Color(red: 0.08, green: 0.10, blue: 0.13)
-    static let muted = Color(red: 0.42, green: 0.45, blue: 0.48)
-    static let panel = Color(red: 0.07, green: 0.08, blue: 0.10)
-    static let teal = Color(red: 0.05, green: 0.53, blue: 0.50)
-    static let coral = Color(red: 0.88, green: 0.30, blue: 0.24)
-    static let amber = Color(red: 0.91, green: 0.62, blue: 0.20)
-    static let violet = Color(red: 0.34, green: 0.31, blue: 0.69)
-    static let gold = Color(red: 0.83, green: 0.56, blue: 0.16)
-    static let blueprint = Color(red: 0.10, green: 0.17, blue: 0.25)
-    static let mint = Color(red: 0.70, green: 0.88, blue: 0.76)
+    static let background = Color(red: 0.945, green: 0.958, blue: 0.972)
+    static let surface = Color(red: 0.985, green: 0.99, blue: 1.0)
+    static let ink = Color(red: 0.055, green: 0.071, blue: 0.094)
+    static let muted = Color(red: 0.39, green: 0.43, blue: 0.49)
+    static let panel = Color(red: 0.045, green: 0.058, blue: 0.075)
+    static let teal = Color(red: 0.00, green: 0.66, blue: 0.70)
+    static let coral = Color(red: 0.96, green: 0.39, blue: 0.34)
+    static let amber = Color(red: 0.88, green: 0.64, blue: 0.22)
+    static let violet = Color(red: 0.28, green: 0.34, blue: 0.78)
+    static let gold = Color(red: 0.76, green: 0.55, blue: 0.18)
+    static let blueprint = Color(red: 0.075, green: 0.105, blue: 0.145)
+    static let mint = Color(red: 0.72, green: 0.94, blue: 0.22)
 
     static func soft(_ color: Color) -> Color {
         color.opacity(0.14)
@@ -20,7 +20,7 @@ enum AppTheme {
 
     static var brandGradient: LinearGradient {
         LinearGradient(
-            colors: [Color(red: 0.04, green: 0.09, blue: 0.13), Color(red: 0.04, green: 0.43, blue: 0.41), Color(red: 0.78, green: 0.32, blue: 0.24)],
+            colors: [Color(red: 0.035, green: 0.047, blue: 0.063), Color(red: 0.00, green: 0.55, blue: 0.62), Color(red: 0.82, green: 0.93, blue: 0.20)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )

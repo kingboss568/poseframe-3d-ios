@@ -60,6 +60,7 @@ platform :ios do
       submit_for_review: false,
       automatic_release: true,
       force: true,
+      overwrite_screenshots: true,
       precheck_include_in_app_purchases: false
     )
   end
@@ -107,6 +108,7 @@ platform :ios do
       submit_for_review: false,
       automatic_release: true,
       force: true,
+      overwrite_screenshots: true,
       precheck_include_in_app_purchases: false
     )
   end
@@ -127,6 +129,7 @@ platform :ios do
       submit_for_review: false,
       automatic_release: true,
       force: true,
+      overwrite_screenshots: true,
       precheck_include_in_app_purchases: false
     )
   end
@@ -163,6 +166,7 @@ platform :ios do
       submit_for_review: true,
       automatic_release: true,
       force: true,
+      overwrite_screenshots: true,
       precheck_include_in_app_purchases: false,
       submission_information: {
         add_id_info_uses_idfa: false,

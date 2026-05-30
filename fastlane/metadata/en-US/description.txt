@@ -1,0 +1,15 @@
+PoseFrame Studio is a 3D pose reference workspace for illustrators, comic artists, storyboard creators, and visual production teams.
+
+Start from built-in character slots and pose templates, create solo or duo compositions, then refine camera angle, focal length, distance, lighting, grid, shadows, mirroring, and scene setup inside a focused 3D editor. When the reference is ready, export it through the iOS share sheet or save it to Photos.
+
+Key features:
+
+- Solo and duo pose templates
+- Male, female, stylized, and realistic character references
+- 3D body proportion preview and camera controls
+- Favorite characters, favorite poses, and fast template reuse
+- Grid, shadow, lighting, focal length, and camera distance controls
+- Reference sharing and photo export
+- One-time Pro unlock for editorial characters, advanced poses, composition guides, transparent PNG, and multi-angle export
+
+PoseFrame Studio does not require an account, does not include ads, does not use subscriptions, does not upload your artwork, and does not track you. The free version includes basic characters, pose references, and PNG export. The one-time Pro unlock adds editorial characters, advanced poses, composition tools, transparent PNG, and multi-angle export.
