@@ -1,5 +1,7 @@
 require "shellwords"
 
+ENV["COPYFILE_DISABLE"] = "1"
+
 default_platform(:ios)
 
 platform :ios do

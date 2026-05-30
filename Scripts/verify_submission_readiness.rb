@@ -31,11 +31,13 @@ checklist = read("AppStore/ComplianceChecklist.zh-Hant.md")
 privacy = read("AppStore/PrivacyPolicy.zh-Hant.md")
 content = read("PoseReferenceApp/Views/ContentView.swift")
 app_state = read("PoseReferenceApp/State/AppState.swift")
+app_data = read("PoseReferenceApp/Models/AppData.swift")
 privacy_manifest_path = File.join(ROOT, "PoseReferenceApp/Resources/PrivacyInfo.xcprivacy")
 
 assert(project.include?("PRODUCT_BUNDLE_IDENTIFIER = #{BUNDLE_ID};"), "Xcode project uses #{BUNDLE_ID}")
 assert(listing.include?("Bundle ID：#{BUNDLE_ID}"), "listing Bundle ID matches project")
 assert(app_state.include?(%Q(static let proProductID = "#{PRODUCT_ID}")), "StoreKit product id is #{PRODUCT_ID}")
+assert(project.include?("Resources/Models in Resources"), "Xcode project bundles Resources/Models")
 assert(listing.include?(PRODUCT_ID), "listing mentions IAP product id")
 assert(review.include?(PRODUCT_ID), "review notes mention IAP product id")
 assert(!review.include?("無 IAP"), "review notes do not claim there is no IAP")
@@ -61,6 +63,43 @@ assert_file("AppStore/IAP.json")
 iap = JSON.parse(read("AppStore/IAP.json"))
 assert(iap.fetch("product_id") == PRODUCT_ID, "IAP JSON product id matches app")
 assert(iap.fetch("type") == "non_consumable", "IAP JSON uses non-consumable product type")
+
+expected_models = {
+  "Free" => %w[
+    Male_Adult_03
+    Sports_Male_01
+    Female_Adult_03
+    Sports_Female_01
+  ],
+  "Pro" => %w[
+    Business_Male_01
+    Business_Female_01
+    Military_Male_01
+    Female_Party_01
+  ]
+}
+
+expected_models.values.flatten.each do |name|
+  assert(app_data.include?(%Q(usdzName: "#{name}")), "AppData maps character to #{name}.usdz")
+end
+
+missing_models = expected_models.flat_map do |tier, names|
+  names.each_with_object([]) do |name, missing|
+    relative = File.join("PoseReferenceApp/Resources/Models", tier, "#{name}.usdz")
+    missing << relative unless File.file?(File.join(ROOT, relative))
+  end
+end
+assert(missing_models.empty?, "all 8 Rocketbox USDZ model files are present; missing: #{missing_models.join(', ')}")
+
+apple_double_roots = %w[
+  PoseReferenceApp/Resources/Models
+  Screenshots
+  fastlane/screenshots
+]
+apple_double_files = apple_double_roots.flat_map do |relative|
+  Dir.glob(File.join(ROOT, relative, "**/._*"))
+end
+assert(apple_double_files.empty?, "source models and screenshots do not contain AppleDouble files")
 
 %w[iphone69 ipad13].each do |device|
   dir = File.join(ROOT, "Screenshots", device)

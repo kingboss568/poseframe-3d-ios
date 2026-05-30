@@ -52,6 +52,7 @@ struct CharacterProfile: Identifiable, Hashable {
     let isPremium: Bool
     let studioRole: String
     let detail: String
+    let usdzName: String?
 
     var accent: Color { Color(hex: accentHex) }
 
@@ -66,7 +67,8 @@ struct CharacterProfile: Identifiable, Hashable {
         proportion: Double,
         isPremium: Bool = false,
         studioRole: String = "角色比例參考",
-        detail: String = "適合快速建立乾淨的人體比例與動態草圖。"
+        detail: String = "適合快速建立乾淨的人體比例與動態草圖。",
+        usdzName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -79,6 +81,7 @@ struct CharacterProfile: Identifiable, Hashable {
         self.isPremium = isPremium
         self.studioRole = studioRole
         self.detail = detail
+        self.usdzName = usdzName
     }
 }
 
@@ -385,14 +388,14 @@ struct RecentProject: Identifiable, Hashable {
 
 enum AppData {
     static let characters: [CharacterProfile] = [
-        CharacterProfile(id: "male-anime-a", name: "Akio 少年", gender: .male, style: .anime, poseCount: 42, accentHex: "#277E9A", symbol: "figure.stand", proportion: 1.04, studioRole: "漫畫主角比例", detail: "肩線清楚、四肢乾淨，適合快速起稿。"),
-        CharacterProfile(id: "male-real-b", name: "Ren 寫實男", gender: .male, style: .realistic, poseCount: 38, accentHex: "#59636E", symbol: "figure.walk", proportion: 1.12, studioRole: "寫實男體比例", detail: "偏成人比例，適合商業分鏡與產品人物。"),
-        CharacterProfile(id: "female-anime-a", name: "Mika 少女", gender: .female, style: .anime, poseCount: 45, accentHex: "#C75C7A", symbol: "figure.dance", proportion: 0.98, studioRole: "動漫女角比例", detail: "動勢輕盈，適合角色設計與封面草圖。"),
-        CharacterProfile(id: "female-real-b", name: "Aya 寫實女", gender: .female, style: .realistic, poseCount: 36, accentHex: "#8B6F47", symbol: "figure.stand.line.dotted.figure.stand", proportion: 1.02, studioRole: "寫實女體比例", detail: "比例穩定，適合姿態檢查和光影參考。"),
-        CharacterProfile(id: "male-editorial-pro", name: "Kai 商稿男", gender: .male, style: .editorial, poseCount: 68, accentHex: "#1F6F8B", symbol: "figure.strengthtraining.traditional", proportion: 1.18, isPremium: true, studioRole: "海報強透視", detail: "強化肩寬、手臂和鏡頭張力，適合封面與廣告人物。"),
-        CharacterProfile(id: "female-editorial-pro", name: "Noa 商稿女", gender: .female, style: .editorial, poseCount: 72, accentHex: "#C14667", symbol: "figure.mind.and.body", proportion: 1.08, isPremium: true, studioRole: "時裝與封面", detail: "長線條比例，適合時尚、封面、角色定裝與手勢研究。"),
-        CharacterProfile(id: "male-action-pro", name: "Theo 動作男", gender: .male, style: .realistic, poseCount: 64, accentHex: "#3A3F58", symbol: "figure.boxing", proportion: 1.16, isPremium: true, studioRole: "動作分鏡", detail: "下盤穩、重心明確，適合打鬥、運動和低角度鏡頭。"),
-        CharacterProfile(id: "female-action-pro", name: "Luna 動作女", gender: .female, style: .anime, poseCount: 70, accentHex: "#8F4CA7", symbol: "figure.run", proportion: 1.03, isPremium: true, studioRole: "動態剪影", detail: "肢體延展明顯，適合跳躍、閃避、舞蹈和強烈剪影。")
+        CharacterProfile(id: "male-anime-a", name: "Akio 少年", gender: .male, style: .anime, poseCount: 42, accentHex: "#277E9A", symbol: "figure.stand", proportion: 1.04, studioRole: "漫畫主角比例", detail: "肩線清楚、四肢乾淨，適合快速起稿。", usdzName: "Male_Adult_03"),
+        CharacterProfile(id: "male-real-b", name: "Ren 寫實男", gender: .male, style: .realistic, poseCount: 38, accentHex: "#59636E", symbol: "figure.walk", proportion: 1.12, studioRole: "寫實男體比例", detail: "偏成人比例，適合商業分鏡與產品人物。", usdzName: "Sports_Male_01"),
+        CharacterProfile(id: "female-anime-a", name: "Mika 少女", gender: .female, style: .anime, poseCount: 45, accentHex: "#C75C7A", symbol: "figure.dance", proportion: 0.98, studioRole: "動漫女角比例", detail: "動勢輕盈，適合角色設計與封面草圖。", usdzName: "Female_Adult_03"),
+        CharacterProfile(id: "female-real-b", name: "Aya 寫實女", gender: .female, style: .realistic, poseCount: 36, accentHex: "#8B6F47", symbol: "figure.stand.line.dotted.figure.stand", proportion: 1.02, studioRole: "寫實女體比例", detail: "比例穩定，適合姿態檢查和光影參考。", usdzName: "Sports_Female_01"),
+        CharacterProfile(id: "male-editorial-pro", name: "Kai 商稿男", gender: .male, style: .editorial, poseCount: 68, accentHex: "#1F6F8B", symbol: "figure.strengthtraining.traditional", proportion: 1.18, isPremium: true, studioRole: "海報強透視", detail: "強化肩寬、手臂和鏡頭張力，適合封面與廣告人物。", usdzName: "Business_Male_01"),
+        CharacterProfile(id: "female-editorial-pro", name: "Noa 商稿女", gender: .female, style: .editorial, poseCount: 72, accentHex: "#C14667", symbol: "figure.mind.and.body", proportion: 1.08, isPremium: true, studioRole: "時裝與封面", detail: "長線條比例，適合時尚、封面、角色定裝與手勢研究。", usdzName: "Business_Female_01"),
+        CharacterProfile(id: "male-action-pro", name: "Theo 動作男", gender: .male, style: .realistic, poseCount: 64, accentHex: "#3A3F58", symbol: "figure.boxing", proportion: 1.16, isPremium: true, studioRole: "動作分鏡", detail: "下盤穩、重心明確，適合打鬥、運動和低角度鏡頭。", usdzName: "Military_Male_01"),
+        CharacterProfile(id: "female-action-pro", name: "Luna 動作女", gender: .female, style: .anime, poseCount: 70, accentHex: "#8F4CA7", symbol: "figure.run", proportion: 1.03, isPremium: true, studioRole: "動態剪影", detail: "肢體延展明顯，適合跳躍、閃避、舞蹈和強烈剪影。", usdzName: "Female_Party_01")
     ]
 
     static let props: [PropItem] = [

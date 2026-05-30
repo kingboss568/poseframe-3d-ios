@@ -119,16 +119,17 @@ private struct ScreenshotEditorView: View {
     var body: some View {
         PoseEditorView(editor: editor)
             .onAppear {
-                editor.activePanel = editor.mode == .duo ? .characters : .lighting
+                editor.activePanel = .lighting
                 editor.showGrid = true
                 editor.showShadows = true
-                editor.cameraDistance = editor.mode == .duo ? 5.0 : 4.55
-                editor.focalLength = 52
-                editor.perspective = 0.48
-                editor.keyLightIntensity = 620
-                editor.fillLightIntensity = 210
-                editor.backLightIntensity = 300
-                editor.backgroundBrightness = 0.76
+                editor.cameraDistance = editor.mode == .duo ? 8.0 : 5.55
+                editor.cameraPitch = editor.mode == .duo ? -7 : -4
+                editor.focalLength = 46
+                editor.perspective = 0.42
+                editor.keyLightIntensity = 460
+                editor.fillLightIntensity = 170
+                editor.backLightIntensity = 220
+                editor.backgroundBrightness = 0.64
             }
     }
 }

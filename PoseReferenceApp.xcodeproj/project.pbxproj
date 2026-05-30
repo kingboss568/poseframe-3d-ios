@@ -22,6 +22,7 @@
 		A1000000000000000000000D /* SceneKitPoseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* SceneKitPoseView.swift */; };
 		A1000000000000000000000E /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* Resources/Assets.xcassets */; };
 		A1000000000000000000000F /* Resources/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* Resources/PrivacyInfo.xcprivacy */; };
+		A10000000000000000000010 /* Resources/Models in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* Resources/Models */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		A2000000000000000000000E /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		A2000000000000000000000F /* PoseReferenceApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PoseReferenceApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000010 /* Resources/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A20000000000000000000011 /* Resources/Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources/Models; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +75,7 @@
 				A40000000000000000000008 /* Support */,
 				A2000000000000000000000E /* Resources/Assets.xcassets */,
 				A20000000000000000000010 /* Resources/PrivacyInfo.xcprivacy */,
+				A20000000000000000000011 /* Resources/Models */,
 			);
 			path = PoseReferenceApp;
 			sourceTree = "<group>";
@@ -142,6 +145,7 @@
 				A70000000000000000000001 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
 				A80000000000000000000001 /* Resources */,
+				A81000000000000000000001 /* Remove AppleDouble Files */,
 			);
 			buildRules = (
 			);
@@ -192,10 +196,34 @@
 			files = (
 				A1000000000000000000000E /* Resources/Assets.xcassets in Resources */,
 				A1000000000000000000000F /* Resources/PrivacyInfo.xcprivacy in Resources */,
+				A10000000000000000000010 /* Resources/Models in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A81000000000000000000001 /* Remove AppleDouble Files */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${WRAPPER_NAME}",
+			);
+			name = "Remove AppleDouble Files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "find \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" -name '._*' -delete\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A70000000000000000000001 /* Sources */ = {
@@ -257,7 +285,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -319,7 +347,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

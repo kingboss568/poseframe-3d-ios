@@ -11,28 +11,32 @@ PROJECT = File.join(ROOT, "PoseReferenceApp.xcodeproj")
 SCHEME = "PoseReferenceApp"
 BUNDLE_ID = "com.yushang.poseframe3d"
 
+ENV["COPYFILE_DISABLE"] = "1"
+
 DEVICES = [
   {
     folder: "iphone69",
     prefix: "iphone69",
     name: "PoseFrame-iPhone-6.9",
+    reusable_names: ["MTS-iPhone-6.9", "ConcertBandGuide-iPhone-6.9", "PoseFrame-iPhone-6.9"],
     type: "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max"
   },
   {
     folder: "ipad13",
     prefix: "ipad13",
     name: "PoseFrame-iPad-13",
+    reusable_names: ["MTS-iPad-13", "ConcertBandGuide-iPad-13", "PoseFrame-iPad-13"],
     type: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB"
   }
 ].freeze
 
 SCENARIOS = [
-  ["01_home", "home", 5.0],
-  ["02_characters", "characters", 5.0],
-  ["03_poses", "poses", 5.0],
-  ["04_editor_lighting", "editor", 8.0],
-  ["05_duo_editor", "duo", 8.0],
-  ["06_pro_purchase", "paywall", 6.0]
+  ["01_home", "home", 6.0],
+  ["02_characters", "characters", 20.0],
+  ["03_poses", "poses", 14.0],
+  ["04_editor_lighting", "editor", 22.0],
+  ["05_duo_editor", "duo", 22.0],
+  ["06_pro_purchase", "paywall", 14.0]
 ].freeze
 
 def run!(*command)
@@ -53,6 +57,21 @@ def latest_ios_runtime
   raise "No available iOS simulator runtime found" if ios.empty?
 
   ios.max_by { |runtime| Gem::Version.new(runtime["version"]) }.fetch("identifier")
+end
+
+def reusable_device_udid(names, runtime)
+  devices = JSON.parse(capture(["xcrun", "simctl", "list", "devices", "--json"])).fetch("devices")
+  candidates = devices.fetch(runtime, [])
+  names.each do |name|
+    match = candidates.find { |device| device["name"] == name && device["isAvailable"] }
+    return match.fetch("udid") if match
+  end
+  nil
+end
+
+def boot_with_timeout(udid, seconds: 45)
+  system("xcrun", "simctl", "boot", udid) || warn("simctl boot returned non-zero for #{udid}; continuing after fixed wait.")
+  sleep(seconds)
 end
 
 def app_path_for(derived_data)
@@ -111,10 +130,14 @@ DEVICES.each do |device|
   FileUtils.rm_rf(derived_data)
   FileUtils.mkdir_p(screenshot_dir)
 
-  udid = capture(["xcrun", "simctl", "create", device.fetch(:name), device.fetch(:type), runtime]).strip
+  udid = reusable_device_udid(device.fetch(:reusable_names), runtime)
+  created_device = false
+  unless udid
+    udid = capture(["xcrun", "simctl", "create", device.fetch(:name), device.fetch(:type), runtime]).strip
+    created_device = true
+  end
   begin
-    run!("xcrun", "simctl", "boot", udid)
-    run!("xcrun", "simctl", "bootstatus", udid, "-b")
+    boot_with_timeout(udid)
     run!(
       "xcodebuild",
       "-project", PROJECT,
@@ -147,7 +170,7 @@ DEVICES.each do |device|
     end
   ensure
     system("xcrun", "simctl", "shutdown", udid)
-    system("xcrun", "simctl", "delete", udid)
+    system("xcrun", "simctl", "delete", udid) if created_device
   end
 end
 

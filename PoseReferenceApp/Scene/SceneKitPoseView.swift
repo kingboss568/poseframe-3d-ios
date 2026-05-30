@@ -32,8 +32,8 @@ struct SceneKitPoseView: UIViewRepresentable {
         private let ambientLight = SCNNode()
         private let floorNode = SCNNode()
         private let gridNode = SCNNode()
-        private let characterA = MannequinRig()
-        private let characterB = MannequinRig()
+        private let characterA = RealisticCharacterRig()
+        private let characterB = RealisticCharacterRig()
         private var propNodes: [String: SCNNode] = [:]
         private var lastPropIDs = Set<String>()
 
@@ -286,7 +286,7 @@ struct SceneKitPoseView: UIViewRepresentable {
     }
 }
 
-private final class MannequinRig {
+private final class RealisticCharacterRig {
     let root = SCNNode()
 
     private let torsoPivot = SCNNode()
@@ -308,6 +308,24 @@ private final class MannequinRig {
     private let pantsMaterial = SCNMaterial()
     private let shoeMaterial = SCNMaterial()
     private let faceMaterial = SCNMaterial()
+    private var rocketboxRoot: SCNNode?
+    private var loadedUSDZName: String?
+    private var rocketboxBones: [String: SCNNode] = [:]
+    private var rocketboxBaseAngles: [String: SCNVector3] = [:]
+    private var originalRocketboxDiffuse: [ObjectIdentifier: Any] = [:]
+
+    private let boneCandidates: [String: [String]] = [
+        "torso": ["Spine1", "Spine_01", "Spine", "Bip01 Spine1", "Bip01_Spine1", "mixamorig:Spine1"],
+        "head": ["Head", "Bip01 Head", "Bip01_Head", "mixamorig:Head"],
+        "leftUpperArm": ["LeftArm", "L_UpperArm", "Bip01 L UpperArm", "Bip01_L_UpperArm", "mixamorig:LeftArm"],
+        "leftForearm": ["LeftForeArm", "L_Forearm", "Bip01 L Forearm", "Bip01_L_Forearm", "mixamorig:LeftForeArm"],
+        "rightUpperArm": ["RightArm", "R_UpperArm", "Bip01 R UpperArm", "Bip01_R_UpperArm", "mixamorig:RightArm"],
+        "rightForearm": ["RightForeArm", "R_Forearm", "Bip01 R Forearm", "Bip01_R_Forearm", "mixamorig:RightForeArm"],
+        "leftThigh": ["LeftUpLeg", "L_Thigh", "Bip01 L Thigh", "Bip01_L_Thigh", "mixamorig:LeftUpLeg"],
+        "leftShin": ["LeftLeg", "L_Calf", "Bip01 L Calf", "Bip01_L_Calf", "mixamorig:LeftLeg"],
+        "rightThigh": ["RightUpLeg", "R_Thigh", "Bip01 R Thigh", "Bip01_R_Thigh", "mixamorig:RightUpLeg"],
+        "rightShin": ["RightLeg", "R_Calf", "Bip01 R Calf", "Bip01_R_Calf", "mixamorig:RightLeg"]
+    ]
 
     init() {
         [bodyMaterial, jointMaterial, accentMaterial, hairMaterial, shirtMaterial, pantsMaterial, shoeMaterial, faceMaterial].forEach {
@@ -341,6 +359,10 @@ private final class MannequinRig {
     }
 
     func update(profile: CharacterProfile, pose: JointPose, mirrored: Bool, silhouette: Bool) {
+        if updateRocketboxIfAvailable(profile: profile, pose: pose, mirrored: mirrored, silhouette: silhouette) {
+            return
+        }
+
         accentMaterial.diffuse.contents = silhouette ? UIColor(white: 0.04, alpha: 1) : UIColor(hex: profile.accentHex)
         bodyMaterial.diffuse.contents = silhouette ? UIColor(white: 0.055, alpha: 1) : skinColor(for: profile)
         jointMaterial.diffuse.contents = silhouette ? UIColor(white: 0.02, alpha: 1) : anatomicalShade(for: profile)
@@ -365,6 +387,172 @@ private final class MannequinRig {
         leftShin.eulerAngles = pose.leftShin.radians
         rightThigh.eulerAngles = pose.rightThigh.radians
         rightShin.eulerAngles = pose.rightShin.radians
+    }
+
+    private func updateRocketboxIfAvailable(profile: CharacterProfile, pose: JointPose, mirrored: Bool, silhouette: Bool) -> Bool {
+        guard loadRocketboxIfNeeded(profile: profile), let model = rocketboxRoot else {
+            root.childNodes.forEach { child in
+                if let loadedModel = rocketboxRoot {
+                    child.isHidden = child === loadedModel
+                } else {
+                    child.isHidden = false
+                }
+            }
+            return false
+        }
+
+        root.childNodes.forEach { child in
+            child.isHidden = child !== model
+        }
+
+        let styleScale: Float = profile.style == .anime ? 1.02 : 1.0
+        let xScale: Float = mirrored ? -0.94 : 0.94
+        let depthScale: Float = profile.style == .realistic ? 0.96 : 0.90
+        root.scale = SCNVector3(xScale, Float(profile.proportion) * styleScale, depthScale)
+
+        applyRocketboxPose(pose: pose, mirrored: mirrored)
+        applyRocketboxSurface(profile: profile, silhouette: silhouette, to: model)
+        return true
+    }
+
+    private func loadRocketboxIfNeeded(profile: CharacterProfile) -> Bool {
+        guard let name = profile.usdzName else { return false }
+        if loadedUSDZName == name {
+            return rocketboxRoot != nil
+        }
+
+        rocketboxRoot?.removeFromParentNode()
+        rocketboxRoot = nil
+        rocketboxBones.removeAll()
+        rocketboxBaseAngles.removeAll()
+        originalRocketboxDiffuse.removeAll()
+
+        let subdirectory = profile.isPremium ? "Models/Pro" : "Models/Free"
+        guard let url = Bundle.main.url(forResource: name, withExtension: "usdz", subdirectory: subdirectory)
+            ?? Bundle.main.url(forResource: name, withExtension: "usdz", subdirectory: "Models") else {
+            return false
+        }
+
+        guard let scene = try? SCNScene(url: url, options: [.checkConsistency: true]) else {
+            return false
+        }
+
+        let container = SCNNode()
+        container.name = "Rocketbox-\(name)"
+        scene.rootNode.childNodes.forEach { container.addChildNode($0) }
+        normalizeRocketbox(container)
+        root.addChildNode(container)
+        rocketboxRoot = container
+        loadedUSDZName = name
+        bindRocketboxBones(in: container)
+        return true
+    }
+
+    private func normalizeRocketbox(_ node: SCNNode) {
+        let bounds = node.boundingBox
+        let xExtent = bounds.max.x - bounds.min.x
+        let yExtent = bounds.max.y - bounds.min.y
+        let zExtent = bounds.max.z - bounds.min.z
+        let height = max(yExtent, zExtent)
+        guard height > 0 else { return }
+
+        let scale = 1.72 / height
+        node.scale = SCNVector3(scale, scale, scale)
+
+        if zExtent > yExtent && zExtent > xExtent {
+            let centerX = (bounds.min.x + bounds.max.x) / 2
+            let centerY = (bounds.min.y + bounds.max.y) / 2
+            node.eulerAngles.x = (-90).degreesToRadians
+            node.position = SCNVector3(-centerX * scale, -bounds.min.z * scale, centerY * scale)
+        } else {
+            let centerX = (bounds.min.x + bounds.max.x) / 2
+            let centerZ = (bounds.min.z + bounds.max.z) / 2
+            node.position = SCNVector3(-centerX * scale, -bounds.min.y * scale, -centerZ * scale)
+        }
+    }
+
+    private func bindRocketboxBones(in node: SCNNode) {
+        for (role, candidates) in boneCandidates {
+            if let bone = candidates.compactMap({ findNode(named: $0, in: node) }).first {
+                rocketboxBones[role] = bone
+                rocketboxBaseAngles[role] = bone.eulerAngles
+            }
+        }
+    }
+
+    private func findNode(named targetName: String, in node: SCNNode) -> SCNNode? {
+        if node.name == targetName {
+            return node
+        }
+
+        for child in node.childNodes {
+            if let match = findNode(named: targetName, in: child) {
+                return match
+            }
+        }
+
+        return nil
+    }
+
+    private func applyRocketboxPose(pose: JointPose, mirrored: Bool) {
+        apply(pose.torso, to: "torso")
+        apply(pose.head, to: "head")
+        apply(mirrored ? pose.rightUpperArm : pose.leftUpperArm, to: "leftUpperArm")
+        apply(mirrored ? pose.rightForearm : pose.leftForearm, to: "leftForearm")
+        apply(mirrored ? pose.leftUpperArm : pose.rightUpperArm, to: "rightUpperArm")
+        apply(mirrored ? pose.leftForearm : pose.rightForearm, to: "rightForearm")
+        apply(mirrored ? pose.rightThigh : pose.leftThigh, to: "leftThigh")
+        apply(mirrored ? pose.rightShin : pose.leftShin, to: "leftShin")
+        apply(mirrored ? pose.leftThigh : pose.rightThigh, to: "rightThigh")
+        apply(mirrored ? pose.leftShin : pose.rightShin, to: "rightShin")
+    }
+
+    private func apply(_ angles: EulerAngles, to role: String, zOffset: Float = 0) {
+        guard let node = rocketboxBones[role] else { return }
+        let base = rocketboxBaseAngles[role] ?? SCNVector3Zero
+        let influence: Float = 0.34
+        node.eulerAngles = SCNVector3(
+            base.x + angles.x.degreesToRadians * influence,
+            base.y + angles.y.degreesToRadians * influence,
+            base.z + (angles.z + zOffset).degreesToRadians * influence
+        )
+    }
+
+    private func applyRocketboxSurface(profile: CharacterProfile, silhouette enabled: Bool, to node: SCNNode) {
+        let surfaceColor: UIColor
+        if enabled {
+            surfaceColor = UIColor(white: 0.02, alpha: 1)
+        } else {
+            switch (profile.gender, profile.style) {
+            case (.male, .realistic), (.male, .editorial):
+                surfaceColor = UIColor(red: 0.50, green: 0.54, blue: 0.56, alpha: 1)
+            case (.female, .realistic), (.female, .editorial):
+                surfaceColor = UIColor(red: 0.56, green: 0.50, blue: 0.45, alpha: 1)
+            case (.male, .anime):
+                surfaceColor = UIColor(red: 0.46, green: 0.58, blue: 0.62, alpha: 1)
+            case (.female, .anime):
+                surfaceColor = UIColor(red: 0.62, green: 0.48, blue: 0.54, alpha: 1)
+            }
+        }
+
+        node.enumerateChildNodes { child, _ in
+            guard let materials = child.geometry?.materials else { return }
+            for material in materials {
+                let key = ObjectIdentifier(material)
+                if enabled {
+                    if originalRocketboxDiffuse[key] == nil, let contents = material.diffuse.contents {
+                        originalRocketboxDiffuse[key] = contents
+                    }
+                    material.diffuse.contents = surfaceColor
+                } else {
+                    material.diffuse.contents = surfaceColor
+                }
+                material.lightingModel = .lambert
+                material.specular.contents = UIColor(white: 0.18, alpha: 0.08)
+                material.roughness.contents = 0.72
+                material.metalness.contents = 0
+            }
+        }
     }
 
     private func build() {
