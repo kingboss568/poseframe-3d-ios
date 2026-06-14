@@ -1,6 +1,6 @@
 # App Store 上架檢核清單
 
-更新日期：2026-05-30
+更新日期：2026-06-14
 
 ## 已完成並已驗證
 
@@ -18,25 +18,27 @@
 - 截圖腳本已加入 PNG 驗證、空白圖重試與 `._*` 隱藏檔清理。
 - App Store provisioning profile 已建立並安裝：`PoseFrame Studio App Store`。
 - fastlane `ios verify` 通過。
-- fastlane `ios build_ipa` 已成功輸出簽名 IPA：`Build/PoseFrameStudio.ipa`，build number `6`。
+- fastlane `ios build_ipa` 已成功輸出簽名 IPA：`Build/PoseFrameStudio.ipa`，版本 `1.1`，build number `8`。
 - IPA 內含 `PrivacyInfo.xcprivacy`，簽名為 `Apple Distribution: Yu Shiung Jiang (7H7ZUG2WX8)`。
-- ASC API 已確認 build `6` 狀態為 `VALID` / `APP_STORE_ELIGIBLE`，並已綁定到 iOS 版本 `1.0`。
-- fastlane `ios metadata` 已成功上傳 metadata 與 iPhone 6.9 / iPad 13 截圖，precheck 無問題。
+- 本次為既有已上架 App 的版本更新；版本 `1.1` / build `8` 已上傳並掛到 App Store Connect 版本頁。
+- fastlane `ios upload_existing_ipa` 已成功上傳 metadata、iPhone 6.9 / iPad 13 截圖與 IPA，precheck 無問題。
 - App Store Connect app record 已建立，Apple ID：`6774984271`，SKU：`com.yushang.poseframe3d`。
-- IAP 商品已由 ASC API 建立，Product ID：`com.yushang.poseframe3d.pro`，ASC IAP ID：`6774986385`，狀態 `READY_TO_SUBMIT`。
+- IAP 商品已由 ASC API 建立，Product ID：`com.yushang.poseframe3d.pro`，ASC IAP ID：`6774986385`，狀態 `APPROVED`。
 - IAP 已設定 USA base territory 價格 `USD 4.99`，Apple 已自動產生其他地區價格。
 - IAP review note、availability 與 App Review screenshot 已上傳；付款頁截圖檔名：`iphone69_06_pro_purchase.png`。
 - iPad 已設定支援四方向，避免「非全螢幕 iPad App 必須支援所有方向」警告。
+- App Store Connect API 於 2026-06-14 20:42 確認：版本 `1.1` 狀態 `WAITING_FOR_REVIEW`，build `8` processingState `VALID`，截圖集皆為 `COMPLETE`。
 
 ## 尚未完成 / 送審阻塞
 
-- 尚未按下最後「送出審查」。依上架技能規範，最後 submit 需要使用者明確確認。
-- 送審前仍建議在 Comet 最後目視確認年齡分級、類別與 IAP 是否顯示在版本頁。
+- 無目前送審阻塞；版本 `1.1` 已送出審查並等待 Apple Review。
+- 若 Apple 後續退件，優先檢查 reviewer-visible 的 Pro 解鎖流程、付款頁截圖、IAP 附加狀態與 3D 編輯器操作路徑。
 
 ## 下一步
 
-1. 使用 Comet 打開 App Store Connect 版本頁，確認 build `6`、IAP `PoseFrame Studio Pro`、年齡分級、類別與審查資訊。
-2. 使用者明確確認後，再執行 `fastlane ios release` 或在 Comet 中送出審查。
+1. 等待 Apple Review 回覆。
+2. 若審查通過，依目前設定 `AFTER_APPROVAL` 自動發佈。
+3. 若審查要求補件，沿用 `fastlane ios upload_existing_ipa` / `fastlane ios submit_review` 流程處理修正版。
 
 ## 審查風險提醒
 

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "fileutils"
 require "shellwords"
 
 ROOT = File.expand_path("..", __dir__)
@@ -98,6 +99,9 @@ apple_double_roots = %w[
   Screenshots
   fastlane
 ]
+apple_double_roots.each do |relative|
+  Dir.glob(File.join(ROOT, relative, "**/._*")).each { |path| FileUtils.rm_f(path) }
+end
 apple_double_files = apple_double_roots.flat_map do |relative|
   Dir.glob(File.join(ROOT, relative, "**/._*"))
 end
@@ -112,6 +116,13 @@ assert(apple_double_files.empty?, "source models and screenshots do not contain 
     assert($?.success? && dimensions.include?("pixelWidth:"), "#{File.basename(path)} is a readable PNG")
   end
 end
+
+fastlane_screenshots = Dir.glob(File.join(ROOT, "fastlane/screenshots/zh-Hant/*.png")).reject { |path| File.basename(path).start_with?("._") }
+%w[iphone69 ipad13].each do |device|
+  count = fastlane_screenshots.count { |path| File.basename(path).start_with?("#{device}_") }
+  assert(count >= 6, "fastlane zh-Hant has at least 6 #{device} screenshots")
+end
+assert(fastlane_screenshots.any? { |path| File.basename(path).include?("pro_purchase") }, "fastlane screenshots include Pro purchase/paywall screen")
 
 privacy_manifest = `plutil -lint #{privacy_manifest_path.shellescape} 2>&1`
 assert($?.success?, "PrivacyInfo.xcprivacy passes plutil")

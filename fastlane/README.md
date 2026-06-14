@@ -87,6 +87,14 @@ Upload the existing IPA, metadata, and screenshots without rebuilding.
 
 Upload only the existing IPA, leaving metadata and screenshots untouched.
 
+### ios submit_review
+
+```sh
+[bundle exec] fastlane ios submit_review
+```
+
+Submit the already uploaded App Store version for review without rebuilding or reuploading assets.
+
 ### ios release
 
 ```sh

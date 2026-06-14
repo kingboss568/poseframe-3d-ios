@@ -145,6 +145,78 @@ struct JointPose: Hashable {
     )
 }
 
+enum JointAxis: String, CaseIterable, Identifiable {
+    case x = "前後"
+    case y = "扭轉"
+    case z = "側向"
+
+    var id: String { rawValue }
+}
+
+extension EulerAngles {
+    subscript(axis: JointAxis) -> Float {
+        get {
+            switch axis {
+            case .x: return x
+            case .y: return y
+            case .z: return z
+            }
+        }
+        set {
+            switch axis {
+            case .x: x = newValue
+            case .y: y = newValue
+            case .z: z = newValue
+            }
+        }
+    }
+}
+
+enum JointRole: String, CaseIterable, Identifiable {
+    case head
+    case torso
+    case leftUpperArm
+    case leftForearm
+    case rightUpperArm
+    case rightForearm
+    case leftThigh
+    case leftShin
+    case rightThigh
+    case rightShin
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .head: return "頭部"
+        case .torso: return "軀幹"
+        case .leftUpperArm: return "左上臂"
+        case .leftForearm: return "左前臂"
+        case .rightUpperArm: return "右上臂"
+        case .rightForearm: return "右前臂"
+        case .leftThigh: return "左大腿"
+        case .leftShin: return "左小腿"
+        case .rightThigh: return "右大腿"
+        case .rightShin: return "右小腿"
+        }
+    }
+
+    var keyPath: WritableKeyPath<JointPose, EulerAngles> {
+        switch self {
+        case .head: return \.head
+        case .torso: return \.torso
+        case .leftUpperArm: return \.leftUpperArm
+        case .leftForearm: return \.leftForearm
+        case .rightUpperArm: return \.rightUpperArm
+        case .rightForearm: return \.rightForearm
+        case .leftThigh: return \.leftThigh
+        case .leftShin: return \.leftShin
+        case .rightThigh: return \.rightThigh
+        case .rightShin: return \.rightShin
+        }
+    }
+}
+
 struct PoseTemplate: Identifiable, Hashable {
     let id: String
     let title: String
@@ -197,6 +269,7 @@ struct PropItem: Identifiable, Hashable {
 enum EditorPanel: String, CaseIterable, Identifiable {
     case characters = "角色"
     case pose = "Pose"
+    case joints = "關節"
     case camera = "相機"
     case lighting = "燈光"
     case props = "道具"
@@ -210,6 +283,8 @@ enum EditorPanel: String, CaseIterable, Identifiable {
             return "person.crop.square"
         case .pose:
             return "figure.cooldown"
+        case .joints:
+            return "rotate.3d"
         case .camera:
             return "camera.viewfinder"
         case .lighting:

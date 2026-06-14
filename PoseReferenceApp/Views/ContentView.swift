@@ -51,12 +51,21 @@ struct ContentView: View {
                 .environmentObject(appState)
                 .environmentObject(premiumStore)
         }
-        .sheet(isPresented: $appState.showPaywall) {
+        // 注意：編輯器是 fullScreenCover，蓋住主畫面時這裡的 sheet 無法呈現，
+        // 所以 Paywall 也掛在 PoseEditorView / ExportSheet 內；這裡只負責主畫面情境。
+        .sheet(isPresented: rootPaywallBinding) {
             ProUnlockView(feature: appState.selectedPremiumFeature)
                 .environmentObject(appState)
                 .environmentObject(premiumStore)
                 .presentationDetents([.large])
         }
+    }
+
+    private var rootPaywallBinding: Binding<Bool> {
+        Binding(
+            get: { appState.showPaywall && appState.activeEditor == nil },
+            set: { appState.showPaywall = $0 }
+        )
     }
 }
 
@@ -378,7 +387,7 @@ struct ProUnlockView: View {
                                     ProgressView()
                                         .tint(.white)
                                 }
-                                Text(premiumStore.isProUnlocked ? "已解鎖 Pro" : "解鎖 Pro - \(premiumStore.displayPrice)")
+                                Text(purchaseButtonTitle)
                                     .font(.headline)
                             }
                             .frame(maxWidth: .infinity)
@@ -387,6 +396,19 @@ struct ProUnlockView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(AppTheme.gold)
                         .disabled(premiumStore.isLoading || premiumStore.isProUnlocked)
+
+                        if premiumStore.proProduct == nil, !premiumStore.isProUnlocked, !premiumStore.isLoading {
+                            Button {
+                                Task {
+                                    await premiumStore.loadProducts()
+                                }
+                            } label: {
+                                Label("重新載入價格", systemImage: "arrow.clockwise")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
 
                         Button {
                             Task {
@@ -432,6 +454,21 @@ struct ProUnlockView: View {
                     }
                 }
             }
+            .task {
+                if premiumStore.proProduct == nil, !premiumStore.isProUnlocked {
+                    await premiumStore.loadProducts()
+                }
+            }
         }
+    }
+
+    private var purchaseButtonTitle: String {
+        if premiumStore.isProUnlocked {
+            return "已解鎖 Pro"
+        }
+        if let product = premiumStore.proProduct {
+            return "一次買斷解鎖 Pro - \(product.displayPrice)"
+        }
+        return premiumStore.isLoading ? "正在取得價格…" : "解鎖 Pro"
     }
 }

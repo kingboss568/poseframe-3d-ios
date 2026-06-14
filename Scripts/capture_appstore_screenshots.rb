@@ -18,17 +18,19 @@ DEVICES = [
     folder: "iphone69",
     prefix: "iphone69",
     name: "PoseFrame-iPhone-6.9",
-    reusable_names: ["MTS-iPhone-6.9", "ConcertBandGuide-iPhone-6.9", "PoseFrame-iPhone-6.9"],
+    reusable_names: ["Screenshot-iPhone-6.9", "MTS-iPhone-6.9", "ConcertBandGuide-iPhone-6.9", "PoseFrame-iPhone-6.9"],
     type: "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max"
   },
   {
     folder: "ipad13",
     prefix: "ipad13",
     name: "PoseFrame-iPad-13",
-    reusable_names: ["MTS-iPad-13", "ConcertBandGuide-iPad-13", "PoseFrame-iPad-13"],
+    reusable_names: ["Screenshot-iPad-13", "MTS-iPad-13", "ConcertBandGuide-iPad-13", "PoseFrame-iPad-13"],
     type: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB"
   }
 ].freeze
+
+DEVICE_FILTER = ENV.fetch("SCREENSHOT_DEVICE", "").split(",").map(&:strip).reject(&:empty?).freeze
 
 SCENARIOS = [
   ["01_home", "home", 6.0],
@@ -74,6 +76,11 @@ def boot_with_timeout(udid, seconds: 45)
   sleep(seconds)
 end
 
+def ensure_booted(udid, seconds: 10)
+  system("xcrun", "simctl", "boot", udid)
+  sleep(seconds)
+end
+
 def app_path_for(derived_data)
   app_path = Dir[File.join(derived_data, "Build/Products/Debug-iphonesimulator/PoseReferenceApp.app")].first
   raise "Built app not found under #{derived_data}" unless app_path
@@ -98,12 +105,12 @@ end
 def capture_verified_screenshot(udid:, bundle_id:, scenario:, wait_seconds:, output_path:, temp_path:)
   last_error = nil
   3.times do |attempt|
-    run!("xcrun", "simctl", "launch", "--terminate-running-process", udid, bundle_id, "--screenshot-scenario", scenario)
-    sleep(wait_seconds + attempt * 1.5)
-    run!("xcrun", "simctl", "io", udid, "screenshot", temp_path)
-    FileUtils.cp(temp_path, output_path)
-
     begin
+      ensure_booted(udid, seconds: attempt.zero? ? 1 : 8)
+      run!("xcrun", "simctl", "launch", "--terminate-running-process", udid, bundle_id, "--screenshot-scenario", scenario)
+      sleep(wait_seconds + attempt * 1.5)
+      run!("xcrun", "simctl", "io", udid, "screenshot", temp_path)
+      FileUtils.cp(temp_path, output_path)
       verify_png(output_path)
       return
     rescue StandardError => error
@@ -111,6 +118,7 @@ def capture_verified_screenshot(udid:, bundle_id:, scenario:, wait_seconds:, out
       warn("Screenshot #{scenario} attempt #{attempt + 1} failed: #{error.message}")
       FileUtils.rm_f(output_path)
       system("xcrun", "simctl", "terminate", udid, bundle_id)
+      system("xcrun", "simctl", "shutdown", udid)
       sleep(1.0)
     end
   end
@@ -120,10 +128,12 @@ end
 
 runtime = latest_ios_runtime
 fastlane_locale_dir = File.join(ROOT, "fastlane/screenshots/zh-Hant")
-FileUtils.rm_rf(fastlane_locale_dir)
+FileUtils.rm_rf(fastlane_locale_dir) if DEVICE_FILTER.empty?
 FileUtils.mkdir_p(fastlane_locale_dir)
 
 DEVICES.each do |device|
+  next if DEVICE_FILTER.any? && !DEVICE_FILTER.include?(device.fetch(:folder))
+
   screenshot_dir = File.join(ROOT, "Screenshots", device.fetch(:folder))
   derived_data = File.join(ROOT, ".build", "Screenshots", device.fetch(:folder), "DerivedData")
   FileUtils.rm_rf(screenshot_dir)

@@ -18,6 +18,9 @@ struct PoseEditorView: View {
 
             VStack(spacing: 0) {
                 topBar
+                if let joint = editor.selectedJoint {
+                    jointEditingHint(joint)
+                }
                 Spacer()
                 quickActions
                 editorPanel
@@ -29,6 +32,36 @@ struct PoseEditorView: View {
                 .environmentObject(appState)
                 .environmentObject(premiumStore)
         }
+        // 編輯器是 fullScreenCover，主畫面的 Paywall sheet 無法呈現，必須掛在這裡。
+        .sheet(isPresented: editorPaywallBinding) {
+            ProUnlockView(feature: appState.selectedPremiumFeature)
+                .environmentObject(appState)
+                .environmentObject(premiumStore)
+        }
+    }
+
+    private var editorPaywallBinding: Binding<Bool> {
+        Binding(
+            get: { appState.showPaywall && !editor.showExportSheet },
+            set: { appState.showPaywall = $0 }
+        )
+    }
+
+    private func jointEditingHint(_ joint: JointRole) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "rotate.3d")
+                .font(.caption.weight(.bold))
+            Text("調整中：\(joint.title)・拖曳旋轉・點空白處完成")
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(AppTheme.teal.opacity(0.92), in: Capsule())
+        .padding(.top, 10)
+        .transition(.opacity)
     }
 
     private var shouldShowCompositionGuide: Bool {
@@ -159,6 +192,8 @@ struct PoseEditorView: View {
             characterPanel
         case .pose:
             posePanel
+        case .joints:
+            jointsPanel
         case .camera:
             cameraPanel
         case .lighting:
@@ -292,6 +327,74 @@ struct PoseEditorView: View {
         }
     }
 
+    private var jointsPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("點 3D 模型上的部位、或從下方選取關節，拖曳畫面即可旋轉。")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.64))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(JointRole.allCases) { joint in
+                        Button {
+                            editor.selectedJoint = editor.selectedJoint == joint ? nil : joint
+                        } label: {
+                            CapsuleTag(title: joint.title, color: AppTheme.teal, selected: editor.selectedJoint == joint)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            if let joint = editor.selectedJoint {
+                ForEach(JointAxis.allCases) { axis in
+                    EditorSlider(
+                        title: "\(joint.title)・\(axis.rawValue)",
+                        value: jointAngleBinding(joint, axis),
+                        range: -160...160,
+                        suffix: "°"
+                    )
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        editor.resetJoint(joint)
+                    } label: {
+                        Label("重置此關節", systemImage: "arrow.counterclockwise")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+
+                    Button {
+                        editor.resetJointEdits()
+                    } label: {
+                        Label("全部還原", systemImage: "arrow.uturn.backward")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(AppTheme.coral)
+                    .disabled(!editor.hasJointEdits)
+                }
+            } else {
+                Text("尚未選取關節。試試直接點模型的手臂或腿。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            EditorSlider(title: "姿勢強度（寫實模型）", value: $editor.poseInfluence, range: 0.2...1.0, suffix: "")
+        }
+    }
+
+    private func jointAngleBinding(_ joint: JointRole, _ axis: JointAxis) -> Binding<Double> {
+        Binding(
+            get: { Double(editor.angle(of: joint, axis: axis)) },
+            set: { editor.setAngle(Float($0), joint: joint, axis: axis) }
+        )
+    }
+
     private var cameraPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -307,12 +410,19 @@ struct PoseEditorView: View {
                 }
             }
 
+            Text("單指拖曳＝旋轉視角・捏合＝縮放・雙指上下＝視線高度・雙擊＝回正")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.58))
+
             EditorSlider(title: "焦距", value: $editor.focalLength, range: 28...95, suffix: "mm")
             EditorSlider(title: "距離", value: Binding(
                 get: { Double(editor.cameraDistance) },
                 set: { editor.cameraDistance = Float($0) }
-            ), range: 2.8...6.2, suffix: "m")
-            EditorSlider(title: "透視", value: $editor.perspective, range: 0.2...1.0, suffix: "")
+            ), range: 1.6...9.0, suffix: "m")
+            EditorSlider(title: "高度", value: Binding(
+                get: { Double(editor.cameraHeight) },
+                set: { editor.cameraHeight = Float($0) }
+            ), range: 0.4...1.8, suffix: "m")
 
             Picker("畫布", selection: $editor.canvasRatio) {
                 ForEach(CanvasRatio.allCases) { ratio in
@@ -520,11 +630,18 @@ private struct QuickActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.headline.weight(.semibold))
-                .frame(width: 42, height: 42)
-                .foregroundStyle(.white)
-                .background(.black.opacity(0.34), in: Circle())
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.headline.weight(.semibold))
+                    .frame(width: 42, height: 42)
+                    .foregroundStyle(.white)
+                    .background(.black.opacity(0.34), in: Circle())
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .shadow(color: .black.opacity(0.5), radius: 2)
+                    .lineLimit(1)
+            }
         }
         .accessibilityLabel(title)
     }
@@ -536,6 +653,13 @@ private struct EditorSlider: View {
     let range: ClosedRange<Double>
     let suffix: String
 
+    private var displayValue: String {
+        if range.upperBound - range.lowerBound <= 4 {
+            return String(format: "%.1f%@", value, suffix)
+        }
+        return "\(Int(value))\(suffix)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -543,7 +667,7 @@ private struct EditorSlider: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer()
-                Text("\(Int(value))\(suffix)")
+                Text(displayValue)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.white.opacity(0.64))
             }

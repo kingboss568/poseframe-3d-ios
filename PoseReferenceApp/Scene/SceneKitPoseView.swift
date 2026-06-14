@@ -12,6 +12,7 @@ struct SceneKitPoseView: UIViewRepresentable {
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView(frame: .zero)
         context.coordinator.configure(view)
+        context.coordinator.editor = editor
         editor.snapshotProvider = { [weak view] in
             view?.snapshot()
         }
@@ -19,12 +20,16 @@ struct SceneKitPoseView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        context.coordinator.editor = editor
         context.coordinator.update(uiView, editor: editor)
     }
 
-    final class Coordinator {
+    final class Coordinator: NSObject {
+        weak var editor: PoseEditorState?
+
         private let scene = SCNScene()
         private let cameraRig = SCNNode()
+        private let cameraPitchNode = SCNNode()
         private let cameraNode = SCNNode()
         private let keyLight = SCNNode()
         private let fillLight = SCNNode()
@@ -32,6 +37,7 @@ struct SceneKitPoseView: UIViewRepresentable {
         private let ambientLight = SCNNode()
         private let floorNode = SCNNode()
         private let gridNode = SCNNode()
+        private let jointMarker = SCNNode()
         private let characterA = RealisticCharacterRig()
         private let characterB = RealisticCharacterRig()
         private var propNodes: [String: SCNNode] = [:]
@@ -39,21 +45,29 @@ struct SceneKitPoseView: UIViewRepresentable {
 
         func configure(_ view: SCNView) {
             view.scene = scene
-            view.allowsCameraControl = true
+            view.allowsCameraControl = false
             view.autoenablesDefaultLighting = false
-            view.antialiasingMode = .multisampling4X
+            view.antialiasingMode = .multisampling2X
             view.preferredFramesPerSecond = 60
+            view.rendersContinuously = false
+            view.isJitteringEnabled = false
 
             cameraNode.camera = SCNCamera()
             cameraNode.camera?.zNear = 0.01
             cameraNode.camera?.zFar = 100
-            cameraRig.addChildNode(cameraNode)
+            cameraNode.camera?.wantsExposureAdaptation = false
+
+            cameraRig.position = SCNVector3(0, 1.05, 0)
+            cameraRig.addChildNode(cameraPitchNode)
+            cameraPitchNode.addChildNode(cameraNode)
             scene.rootNode.addChildNode(cameraRig)
             scene.rootNode.addChildNode(characterA.root)
             scene.rootNode.addChildNode(characterB.root)
 
             configureLights()
             configureFloor()
+            configureJointMarker()
+            attachGestures(to: view)
         }
 
         func update(_ view: SCNView, editor: PoseEditorState) {
@@ -69,36 +83,171 @@ struct SceneKitPoseView: UIViewRepresentable {
             }
 
             cameraNode.camera?.focalLength = CGFloat(editor.focalLength)
-            cameraNode.camera?.fieldOfView = CGFloat(68 - (editor.perspective * 30))
+            cameraRig.position = SCNVector3(0, editor.cameraHeight, 0)
             cameraRig.eulerAngles = SCNVector3(0, editor.cameraYaw.degreesToRadians, 0)
-            cameraNode.position = SCNVector3(0, 1.35, editor.cameraDistance)
-            cameraNode.eulerAngles = SCNVector3(editor.cameraPitch.degreesToRadians, 0, 0)
+            cameraPitchNode.eulerAngles = SCNVector3(editor.cameraPitch.degreesToRadians, 0, 0)
+            cameraNode.position = SCNVector3(0, 0, editor.cameraDistance)
 
             keyLight.light?.intensity = CGFloat(editor.keyLightIntensity)
             fillLight.light?.intensity = CGFloat(editor.fillLightIntensity)
             backLight.light?.intensity = CGFloat(editor.backLightIntensity)
-            floorNode.isHidden = !editor.showShadows || editor.transparentBackground
-            gridNode.isHidden = !editor.showGrid
+            keyLight.light?.castsShadow = editor.showShadows && !editor.transparentBackground
+            floorNode.isHidden = editor.transparentBackground
+            gridNode.isHidden = !editor.showGrid || editor.transparentBackground
 
+            let influence = Float(editor.poseInfluence)
             let pairMode = editor.mode == .duo || editor.selectedPose.isPair || editor.characterB != nil
             characterA.root.position = SCNVector3(pairMode ? -0.42 : 0, 0.02, 0)
             characterA.root.eulerAngles.y = pairMode ? 8.degreesToRadians : 0
-            characterA.update(profile: editor.characterA, pose: editor.selectedPose.joints, mirrored: editor.mirrored, silhouette: editor.silhouetteAssist)
+            characterA.update(profile: editor.characterA, pose: editor.currentJoints, mirrored: editor.mirrored, silhouette: editor.silhouetteAssist, influence: influence)
 
             if pairMode {
                 let second = editor.characterB ?? AppData.defaultCharacterB
                 characterB.root.isHidden = false
                 characterB.root.position = SCNVector3(0.42, 0.02, -0.08)
                 characterB.root.eulerAngles.y = (-172).degreesToRadians
-                characterB.update(profile: second, pose: editor.selectedPose.joints, mirrored: !editor.mirrored, silhouette: editor.silhouetteAssist)
+                characterB.update(profile: second, pose: editor.currentJoints, mirrored: !editor.mirrored, silhouette: editor.silhouetteAssist, influence: influence)
             } else {
                 characterB.root.isHidden = true
             }
+
+            updateJointMarker(editor: editor)
 
             if lastPropIDs != editor.selectedPropIDs {
                 rebuildProps(editor.selectedPropIDs)
             }
         }
+
+        // MARK: - Gestures
+
+        private func attachGestures(to view: SCNView) {
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            pan.maximumNumberOfTouches = 1
+            view.addGestureRecognizer(pan)
+
+            let twoFingerPan = UIPanGestureRecognizer(target: self, action: #selector(handleTwoFingerPan(_:)))
+            twoFingerPan.minimumNumberOfTouches = 2
+            twoFingerPan.maximumNumberOfTouches = 2
+            view.addGestureRecognizer(twoFingerPan)
+
+            let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+            view.addGestureRecognizer(pinch)
+
+            let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+            doubleTap.numberOfTapsRequired = 2
+            view.addGestureRecognizer(doubleTap)
+
+            let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+            tap.require(toFail: doubleTap)
+            view.addGestureRecognizer(tap)
+        }
+
+        @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+            guard let editor else { return }
+            let translation = gesture.translation(in: gesture.view)
+            gesture.setTranslation(.zero, in: gesture.view)
+
+            if editor.selectedJoint != nil {
+                editor.rotateSelectedJoint(
+                    horizontalDegrees: Float(translation.x) * 0.5,
+                    verticalDegrees: Float(translation.y) * 0.5
+                )
+            } else {
+                editor.cameraYaw -= Float(translation.x) * 0.45
+                editor.cameraPitch = min(max(editor.cameraPitch + Float(translation.y) * 0.3, -80), 45)
+            }
+        }
+
+        @objc private func handleTwoFingerPan(_ gesture: UIPanGestureRecognizer) {
+            guard let editor else { return }
+            let translation = gesture.translation(in: gesture.view)
+            gesture.setTranslation(.zero, in: gesture.view)
+            editor.cameraHeight = min(max(editor.cameraHeight - Float(translation.y) * 0.004, 0.4), 1.8)
+        }
+
+        @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            guard let editor, gesture.scale > 0 else { return }
+            editor.cameraDistance = min(max(editor.cameraDistance / Float(gesture.scale), 1.6), 9.0)
+            gesture.scale = 1
+        }
+
+        @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let editor, let view = gesture.view as? SCNView else { return }
+            let location = gesture.location(in: view)
+            let options: [SCNHitTestOption: Any] = [
+                .searchMode: SCNHitTestSearchMode.closest.rawValue,
+                .ignoreHiddenNodes: true
+            ]
+
+            guard let hit = view.hitTest(location, options: options).first,
+                  let role = jointRole(for: hit) else {
+                if editor.selectedJoint != nil {
+                    editor.selectedJoint = nil
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+                return
+            }
+
+            editor.selectedJoint = role
+            if editor.activePanel != .joints {
+                editor.activePanel = .joints
+            }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+
+        @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+            guard let editor else { return }
+            if editor.selectedJoint != nil {
+                editor.selectedJoint = nil
+            } else {
+                editor.setCameraPreset(.threeQuarter)
+                editor.cameraDistance = 4.1
+                editor.cameraHeight = 1.05
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+
+        private func jointRole(for hit: SCNHitTestResult) -> JointRole? {
+            var node: SCNNode? = hit.node
+            while let current = node {
+                if current === characterA.root {
+                    return characterA.nearestJoint(to: hit.worldCoordinates)
+                }
+                if current === characterB.root {
+                    return characterB.nearestJoint(to: hit.worldCoordinates)
+                }
+                node = current.parent
+            }
+            return nil
+        }
+
+        // MARK: - Joint marker
+
+        private func configureJointMarker() {
+            let sphere = SCNSphere(radius: 0.035)
+            sphere.segmentCount = 16
+            let material = SCNMaterial()
+            material.diffuse.contents = UIColor(red: 0.0, green: 0.78, blue: 0.82, alpha: 1)
+            material.emission.contents = UIColor(red: 0.0, green: 0.78, blue: 0.82, alpha: 1)
+            material.readsFromDepthBuffer = false
+            sphere.firstMaterial = material
+            jointMarker.geometry = sphere
+            jointMarker.renderingOrder = 200
+            jointMarker.opacity = 0.85
+            jointMarker.isHidden = true
+            scene.rootNode.addChildNode(jointMarker)
+        }
+
+        private func updateJointMarker(editor: PoseEditorState) {
+            guard let role = editor.selectedJoint, let node = characterA.jointNode(role) else {
+                jointMarker.isHidden = true
+                return
+            }
+            jointMarker.isHidden = false
+            jointMarker.worldPosition = node.worldPosition
+        }
+
+        // MARK: - Environment
 
         private func backgroundColor(for mood: RenderMood, brightness: CGFloat) -> UIColor {
             switch mood {
@@ -116,6 +265,12 @@ struct SceneKitPoseView: UIViewRepresentable {
         private func configureLights() {
             keyLight.light = SCNLight()
             keyLight.light?.type = .directional
+            keyLight.light?.castsShadow = true
+            keyLight.light?.shadowMapSize = CGSize(width: 2048, height: 2048)
+            keyLight.light?.shadowSampleCount = 8
+            keyLight.light?.shadowRadius = 7
+            keyLight.light?.shadowColor = UIColor(white: 0, alpha: 0.34)
+            keyLight.light?.automaticallyAdjustsShadowProjection = true
             keyLight.eulerAngles = SCNVector3((-44).degreesToRadians, (-32).degreesToRadians, 0)
 
             fillLight.light = SCNLight()
@@ -300,6 +455,8 @@ private final class RealisticCharacterRig {
     private let rightThigh = SCNNode()
     private let rightShin = SCNNode()
 
+    private var proceduralPivots: [JointRole: SCNNode] = [:]
+
     private let bodyMaterial = SCNMaterial()
     private let jointMaterial = SCNMaterial()
     private let accentMaterial = SCNMaterial()
@@ -308,11 +465,15 @@ private final class RealisticCharacterRig {
     private let pantsMaterial = SCNMaterial()
     private let shoeMaterial = SCNMaterial()
     private let faceMaterial = SCNMaterial()
+
     private var rocketboxRoot: SCNNode?
     private var loadedUSDZName: String?
     private var rocketboxBones: [String: SCNNode] = [:]
     private var rocketboxBaseAngles: [String: SCNVector3] = [:]
-    private var originalRocketboxDiffuse: [ObjectIdentifier: Any] = [:]
+    private var armDropOffsets: [String: Float] = [:]
+    private var originalDiffuse: [ObjectIdentifier: Any] = [:]
+    private var originalLightingModels: [ObjectIdentifier: SCNMaterial.LightingModel] = [:]
+    private var lastSilhouette: Bool?
 
     private let boneCandidates: [String: [String]] = [
         "torso": ["Spine1", "Spine_01", "Spine", "Bip01 Spine1", "Bip01_Spine1", "mixamorig:Spine1"],
@@ -358,8 +519,36 @@ private final class RealisticCharacterRig {
         build()
     }
 
-    func update(profile: CharacterProfile, pose: JointPose, mirrored: Bool, silhouette: Bool) {
-        if updateRocketboxIfAvailable(profile: profile, pose: pose, mirrored: mirrored, silhouette: silhouette) {
+    // MARK: - Joint lookup for tap selection
+
+    func jointNode(_ role: JointRole) -> SCNNode? {
+        if rocketboxRoot != nil, let bone = rocketboxBones[role.rawValue] {
+            return bone
+        }
+        return proceduralPivots[role]
+    }
+
+    func nearestJoint(to worldPosition: SCNVector3) -> JointRole? {
+        var best: (role: JointRole, distance: Float)?
+        for role in JointRole.allCases {
+            guard let node = jointNode(role) else { continue }
+            let p = node.worldPosition
+            let dx = p.x - worldPosition.x
+            let dy = p.y - worldPosition.y
+            let dz = p.z - worldPosition.z
+            let distance = (dx * dx + dy * dy + dz * dz).squareRoot()
+            if best == nil || distance < best!.distance {
+                best = (role, distance)
+            }
+        }
+        guard let best, best.distance < 0.55 else { return nil }
+        return best.role
+    }
+
+    // MARK: - Update
+
+    func update(profile: CharacterProfile, pose: JointPose, mirrored: Bool, silhouette: Bool, influence: Float) {
+        if updateRocketboxIfAvailable(profile: profile, pose: pose, mirrored: mirrored, silhouette: silhouette, influence: influence) {
             return
         }
 
@@ -389,7 +578,7 @@ private final class RealisticCharacterRig {
         rightShin.eulerAngles = pose.rightShin.radians
     }
 
-    private func updateRocketboxIfAvailable(profile: CharacterProfile, pose: JointPose, mirrored: Bool, silhouette: Bool) -> Bool {
+    private func updateRocketboxIfAvailable(profile: CharacterProfile, pose: JointPose, mirrored: Bool, silhouette: Bool, influence: Float) -> Bool {
         guard loadRocketboxIfNeeded(profile: profile), let model = rocketboxRoot else {
             root.childNodes.forEach { child in
                 if let loadedModel = rocketboxRoot {
@@ -410,8 +599,8 @@ private final class RealisticCharacterRig {
         let depthScale: Float = profile.style == .realistic ? 0.96 : 0.90
         root.scale = SCNVector3(xScale, Float(profile.proportion) * styleScale, depthScale)
 
-        applyRocketboxPose(pose: pose, mirrored: mirrored)
-        applyRocketboxSurface(profile: profile, silhouette: silhouette, to: model)
+        applyRocketboxPose(pose: pose, mirrored: mirrored, influence: influence)
+        applySilhouetteIfNeeded(silhouette, to: model)
         return true
     }
 
@@ -425,7 +614,10 @@ private final class RealisticCharacterRig {
         rocketboxRoot = nil
         rocketboxBones.removeAll()
         rocketboxBaseAngles.removeAll()
-        originalRocketboxDiffuse.removeAll()
+        armDropOffsets.removeAll()
+        originalDiffuse.removeAll()
+        originalLightingModels.removeAll()
+        lastSilhouette = nil
 
         let subdirectory = profile.isPremium ? "Models/Pro" : "Models/Free"
         guard let url = Bundle.main.url(forResource: name, withExtension: "usdz", subdirectory: subdirectory)
@@ -445,6 +637,7 @@ private final class RealisticCharacterRig {
         rocketboxRoot = container
         loadedUSDZName = name
         bindRocketboxBones(in: container)
+        calibrateRestPose()
         return true
     }
 
@@ -480,6 +673,51 @@ private final class RealisticCharacterRig {
         }
     }
 
+    /// Rocketbox / Mixamo 模型常以 T-pose 綁定，直接套姿勢會像稻草人。
+    /// 這裡用「試轉再量測前臂高度」的方式自動找出讓手臂自然下垂的旋轉方向，
+    /// 不需要事先知道每套骨架的軸向慣例。
+    private func calibrateRestPose() {
+        let pairs: [(arm: String, forearm: String)] = [
+            ("leftUpperArm", "leftForearm"),
+            ("rightUpperArm", "rightForearm")
+        ]
+
+        for pair in pairs {
+            guard let arm = rocketboxBones[pair.arm], let forearm = rocketboxBones[pair.forearm] else { continue }
+
+            let armWorld = arm.worldPosition
+            let forearmWorld = forearm.worldPosition
+            let dx = forearmWorld.x - armWorld.x
+            let dy = forearmWorld.y - armWorld.y
+            let dz = forearmWorld.z - armWorld.z
+            let boneLength = (dx * dx + dy * dy + dz * dz).squareRoot()
+            guard boneLength > 0.02 else { continue }
+
+            // dropRatio ≈ 1 代表手臂已自然下垂，≈ 0 代表 T-pose 水平
+            let dropRatio = (armWorld.y - forearmWorld.y) / boneLength
+            guard dropRatio < 0.55 else { continue }
+
+            let baseAngles = arm.eulerAngles
+            let testAngle: Float = 50.degreesToRadians
+            var bestSign: Float = 0
+            var lowestY = forearmWorld.y
+
+            for sign: Float in [1, -1] {
+                arm.eulerAngles = SCNVector3(baseAngles.x, baseAngles.y, baseAngles.z + sign * testAngle)
+                let y = forearm.worldPosition.y
+                if y < lowestY {
+                    lowestY = y
+                    bestSign = sign
+                }
+            }
+            arm.eulerAngles = baseAngles
+
+            if bestSign != 0 {
+                armDropOffsets[pair.arm] = bestSign * 58.degreesToRadians
+            }
+        }
+    }
+
     private func findNode(named targetName: String, in node: SCNNode) -> SCNNode? {
         if node.name == targetName {
             return node
@@ -494,63 +732,55 @@ private final class RealisticCharacterRig {
         return nil
     }
 
-    private func applyRocketboxPose(pose: JointPose, mirrored: Bool) {
-        apply(pose.torso, to: "torso")
-        apply(pose.head, to: "head")
-        apply(mirrored ? pose.rightUpperArm : pose.leftUpperArm, to: "leftUpperArm")
-        apply(mirrored ? pose.rightForearm : pose.leftForearm, to: "leftForearm")
-        apply(mirrored ? pose.leftUpperArm : pose.rightUpperArm, to: "rightUpperArm")
-        apply(mirrored ? pose.leftForearm : pose.rightForearm, to: "rightForearm")
-        apply(mirrored ? pose.rightThigh : pose.leftThigh, to: "leftThigh")
-        apply(mirrored ? pose.rightShin : pose.leftShin, to: "leftShin")
-        apply(mirrored ? pose.leftThigh : pose.rightThigh, to: "rightThigh")
-        apply(mirrored ? pose.leftShin : pose.rightShin, to: "rightShin")
+    private func applyRocketboxPose(pose: JointPose, mirrored: Bool, influence: Float) {
+        apply(pose.torso, to: "torso", influence: influence)
+        apply(pose.head, to: "head", influence: influence)
+        apply(mirrored ? pose.rightUpperArm : pose.leftUpperArm, to: "leftUpperArm", influence: influence)
+        apply(mirrored ? pose.rightForearm : pose.leftForearm, to: "leftForearm", influence: influence)
+        apply(mirrored ? pose.leftUpperArm : pose.rightUpperArm, to: "rightUpperArm", influence: influence)
+        apply(mirrored ? pose.leftForearm : pose.rightForearm, to: "rightForearm", influence: influence)
+        apply(mirrored ? pose.rightThigh : pose.leftThigh, to: "leftThigh", influence: influence)
+        apply(mirrored ? pose.rightShin : pose.leftShin, to: "leftShin", influence: influence)
+        apply(mirrored ? pose.leftThigh : pose.rightThigh, to: "rightThigh", influence: influence)
+        apply(mirrored ? pose.leftShin : pose.rightShin, to: "rightShin", influence: influence)
     }
 
-    private func apply(_ angles: EulerAngles, to role: String, zOffset: Float = 0) {
+    private func apply(_ angles: EulerAngles, to role: String, influence: Float) {
         guard let node = rocketboxBones[role] else { return }
         let base = rocketboxBaseAngles[role] ?? SCNVector3Zero
-        let influence: Float = 0.34
+        let drop = armDropOffsets[role] ?? 0
         node.eulerAngles = SCNVector3(
             base.x + angles.x.degreesToRadians * influence,
             base.y + angles.y.degreesToRadians * influence,
-            base.z + (angles.z + zOffset).degreesToRadians * influence
+            base.z + drop + angles.z.degreesToRadians * influence
         )
     }
 
-    private func applyRocketboxSurface(profile: CharacterProfile, silhouette enabled: Bool, to node: SCNNode) {
-        let surfaceColor: UIColor
-        if enabled {
-            surfaceColor = UIColor(white: 0.02, alpha: 1)
-        } else {
-            switch (profile.gender, profile.style) {
-            case (.male, .realistic), (.male, .editorial):
-                surfaceColor = UIColor(red: 0.50, green: 0.54, blue: 0.56, alpha: 1)
-            case (.female, .realistic), (.female, .editorial):
-                surfaceColor = UIColor(red: 0.56, green: 0.50, blue: 0.45, alpha: 1)
-            case (.male, .anime):
-                surfaceColor = UIColor(red: 0.46, green: 0.58, blue: 0.62, alpha: 1)
-            case (.female, .anime):
-                surfaceColor = UIColor(red: 0.62, green: 0.48, blue: 0.54, alpha: 1)
-            }
-        }
+    /// 不再用單色蓋掉 USDZ 原始貼圖：一般模式保留原始材質，
+    /// 只有剪影模式才整體塗黑，關閉時恢復原貌。
+    private func applySilhouetteIfNeeded(_ enabled: Bool, to node: SCNNode) {
+        guard lastSilhouette != enabled else { return }
+        lastSilhouette = enabled
 
         node.enumerateChildNodes { child, _ in
             guard let materials = child.geometry?.materials else { return }
             for material in materials {
                 let key = ObjectIdentifier(material)
                 if enabled {
-                    if originalRocketboxDiffuse[key] == nil, let contents = material.diffuse.contents {
-                        originalRocketboxDiffuse[key] = contents
+                    if originalDiffuse[key] == nil, let contents = material.diffuse.contents {
+                        originalDiffuse[key] = contents
+                        originalLightingModels[key] = material.lightingModel
                     }
-                    material.diffuse.contents = surfaceColor
+                    material.diffuse.contents = UIColor(white: 0.02, alpha: 1)
+                    material.lightingModel = .lambert
                 } else {
-                    material.diffuse.contents = surfaceColor
+                    if let original = originalDiffuse[key] {
+                        material.diffuse.contents = original
+                    }
+                    if let model = originalLightingModels[key] {
+                        material.lightingModel = model
+                    }
                 }
-                material.lightingModel = .lambert
-                material.specular.contents = UIColor(white: 0.18, alpha: 0.08)
-                material.roughness.contents = 0.72
-                material.metalness.contents = 0
             }
         }
     }
@@ -680,6 +910,19 @@ private final class RealisticCharacterRig {
             connectorMaterial: pantsMaterial,
             terminalMaterial: shoeMaterial
         )
+
+        proceduralPivots = [
+            .torso: torsoPivot,
+            .head: headPivot,
+            .leftUpperArm: leftUpperArm,
+            .leftForearm: leftForearm,
+            .rightUpperArm: rightUpperArm,
+            .rightForearm: rightForearm,
+            .leftThigh: leftThigh,
+            .leftShin: leftShin,
+            .rightThigh: rightThigh,
+            .rightShin: rightShin
+        ]
     }
 
     private func attachLimb(

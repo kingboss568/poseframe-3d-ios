@@ -13,9 +13,14 @@ final class PoseEditorState: ObservableObject, Identifiable {
     @Published var cameraYaw: Float = -18
     @Published var cameraPitch: Float = -4
     @Published var cameraDistance: Float = 4.1
+    @Published var cameraHeight: Float = 1.05
     @Published var focalLength: Double = 55
     @Published var perspective: Double = 0.6
     @Published var canvasRatio: CanvasRatio = .portrait
+
+    @Published var jointOverrides: JointPose?
+    @Published var selectedJoint: JointRole?
+    @Published var poseInfluence: Double = 0.65
 
     @Published var keyLightIntensity: Double = 820
     @Published var fillLightIntensity: Double = 260
@@ -50,12 +55,52 @@ final class PoseEditorState: ObservableObject, Identifiable {
         self.exportName = "\(pose.title)-\(characterA.name)"
     }
 
+    var currentJoints: JointPose {
+        jointOverrides ?? selectedPose.joints
+    }
+
+    var hasJointEdits: Bool {
+        jointOverrides != nil
+    }
+
     func applyPose(_ pose: PoseTemplate) {
         selectedPose = pose
+        jointOverrides = nil
         if pose.isPair, mode == .solo {
             characterB = AppData.defaultCharacterB
         }
         exportName = "\(pose.title)-\(characterA.name)"
+    }
+
+    func angle(of joint: JointRole, axis: JointAxis) -> Float {
+        currentJoints[keyPath: joint.keyPath][axis]
+    }
+
+    func setAngle(_ degrees: Float, joint: JointRole, axis: JointAxis) {
+        var joints = currentJoints
+        joints[keyPath: joint.keyPath][axis] = min(max(degrees, -160), 160)
+        jointOverrides = joints
+    }
+
+    func rotateSelectedJoint(horizontalDegrees: Float, verticalDegrees: Float) {
+        guard let joint = selectedJoint else { return }
+        var joints = currentJoints
+        var angles = joints[keyPath: joint.keyPath]
+        angles.x = min(max(angles.x + verticalDegrees, -160), 160)
+        let sideAxis: JointAxis = (joint == .torso || joint == .head) ? .y : .z
+        angles[sideAxis] = min(max(angles[sideAxis] + horizontalDegrees, -160), 160)
+        joints[keyPath: joint.keyPath] = angles
+        jointOverrides = joints
+    }
+
+    func resetJoint(_ joint: JointRole) {
+        var joints = currentJoints
+        joints[keyPath: joint.keyPath] = selectedPose.joints[keyPath: joint.keyPath]
+        jointOverrides = joints == selectedPose.joints ? nil : joints
+    }
+
+    func resetJointEdits() {
+        jointOverrides = nil
     }
 
     func setCameraPreset(_ preset: CameraPreset) {
@@ -81,6 +126,7 @@ final class PoseEditorState: ObservableObject, Identifiable {
     func resetPose() {
         applyPose(AppData.defaultPose)
         mirrored = false
+        selectedJoint = nil
     }
 
     @discardableResult

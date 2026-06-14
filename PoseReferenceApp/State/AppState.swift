@@ -79,6 +79,7 @@ final class AppState: ObservableObject {
 @MainActor
 final class PremiumStore: ObservableObject {
     static let proProductID = "com.yushang.poseframe3d.pro"
+    private static let unlockCacheKey = "poseframe.pro.unlocked"
 
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchasedProductIDs: Set<String> = []
@@ -86,6 +87,14 @@ final class PremiumStore: ObservableObject {
     @Published var storeMessage: String?
 
     private var updatesTask: Task<Void, Never>?
+
+    init() {
+        // 離線或冷啟動時先用本機快取，讓已購買的使用者立刻看到解鎖狀態，
+        // 之後再由 StoreKit currentEntitlements 校正。
+        if UserDefaults.standard.bool(forKey: Self.unlockCacheKey) {
+            purchasedProductIDs = [Self.proProductID]
+        }
+    }
 
     var proProduct: Product? {
         products.first { $0.id == Self.proProductID }
@@ -118,12 +127,12 @@ final class PremiumStore: ObservableObject {
         do {
             products = try await Product.products(for: [Self.proProductID])
             if products.isEmpty {
-                storeMessage = "尚未從 App Store Connect 取得 Pro 解鎖商品，請確認 IAP Product ID。"
+                storeMessage = "目前無法取得 Pro 解鎖商品，請確認網路後點「重新載入價格」。"
             } else {
                 storeMessage = nil
             }
         } catch {
-            storeMessage = "暫時無法載入購買項目，請稍後再試。"
+            storeMessage = "無法連線 App Store，請確認網路後點「重新載入價格」再試一次。"
         }
     }
 
@@ -133,7 +142,7 @@ final class PremiumStore: ObservableObject {
         }
 
         guard let product = proProduct else {
-            storeMessage = "找不到 Pro 解鎖商品：\(Self.proProductID)"
+            storeMessage = "目前無法取得購買項目，請確認網路後再試一次。"
             return
         }
 
@@ -164,21 +173,29 @@ final class PremiumStore: ObservableObject {
 
         do {
             try await AppStore.sync()
-            await refreshEntitlements()
+            await refreshEntitlements(authoritative: true)
             storeMessage = isProUnlocked ? "已恢復 Pro 解鎖。" : "目前 Apple ID 沒有可恢復的 Pro 購買。"
         } catch {
             storeMessage = "恢復購買失敗，請稍後再試。"
         }
     }
 
-    func refreshEntitlements() async {
+    func refreshEntitlements(authoritative: Bool = false) async {
         var unlockedIDs = Set<String>()
         for await result in StoreKit.Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
             guard transaction.revocationDate == nil else { continue }
             unlockedIDs.insert(transaction.productID)
         }
+
+        // 一般刷新時若 StoreKit 暫時回傳空集合（離線等），不要降級已快取的解鎖狀態；
+        // 只有「恢復購買」這類權威查詢才會以結果為準。
+        if unlockedIDs.isEmpty, !authoritative, UserDefaults.standard.bool(forKey: Self.unlockCacheKey) {
+            return
+        }
+
         purchasedProductIDs = unlockedIDs
+        cacheUnlockState()
     }
 
     private func handle(transactionResult: VerificationResult<StoreKit.Transaction>) async {
@@ -187,11 +204,20 @@ final class PremiumStore: ObservableObject {
             return
         }
 
-        if transaction.productID == Self.proProductID, transaction.revocationDate == nil {
-            purchasedProductIDs.insert(transaction.productID)
+        if transaction.productID == Self.proProductID {
+            if transaction.revocationDate == nil {
+                purchasedProductIDs.insert(transaction.productID)
+            } else {
+                purchasedProductIDs.remove(transaction.productID)
+            }
+            cacheUnlockState()
         }
 
         await transaction.finish()
+    }
+
+    private func cacheUnlockState() {
+        UserDefaults.standard.set(isProUnlocked, forKey: Self.unlockCacheKey)
     }
 
     deinit {

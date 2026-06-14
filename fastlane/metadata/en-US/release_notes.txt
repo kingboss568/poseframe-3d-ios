@@ -1,1 +1,1 @@
-Initial release with character library, pose templates, 3D editor, one-time Pro unlock, export, and photo save features.
+Version 1.1 rebuilds the 3D editor and Pro unlock flow. It adds joint editing, pose strength, gesture-based camera controls, real shadows, and preserved model materials. It also fixes paywall presentation inside the editor/export flow and improves restore purchase behavior.

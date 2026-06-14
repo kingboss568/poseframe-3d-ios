@@ -52,8 +52,21 @@ struct ExportSheet: View {
                     ShareSheet(activityItems: shareItems)
                 }
             }
+            .sheet(isPresented: exportPaywallBinding) {
+                ProUnlockView(feature: appState.selectedPremiumFeature)
+                    .environmentObject(appState)
+                    .environmentObject(premiumStore)
+            }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    /// 匯出頁本身是 sheet，主畫面的 Paywall 無法蓋上來，所以在這裡接手呈現。
+    private var exportPaywallBinding: Binding<Bool> {
+        Binding(
+            get: { appState.showPaywall && editor.showExportSheet },
+            set: { appState.showPaywall = $0 }
+        )
     }
 
     private var formatOptions: some View {

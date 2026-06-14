@@ -76,49 +76,18 @@ def first_data(response)
   response.fetch("data", []).first
 end
 
-def create_bundle_id(client)
+def verify_bundle_id(client)
   existing = first_data(client.get("/v1/bundleIds", "filter[identifier]" => BUNDLE_ID))
-  return existing if existing
+  raise "Bundle ID #{BUNDLE_ID} was not found. Create or repair it in Apple Developer/App Store Connect before upload." unless existing
 
-  puts("Creating Bundle ID #{BUNDLE_ID}")
-  client.post(
-    "/v1/bundleIds",
-    data: {
-      type: "bundleIds",
-      attributes: {
-        identifier: BUNDLE_ID,
-        name: APP_NAME,
-        platform: "IOS"
-      }
-    }
-  ).fetch("data")
+  existing
 end
 
-def create_app(client, bundle)
+def verify_app(client)
   existing = first_data(client.get("/v1/apps", "filter[bundleId]" => BUNDLE_ID))
-  return existing if existing
+  raise "App Store Connect app record for #{BUNDLE_ID} was not found. New app records must be created in Comet before Fastlane upload." unless existing
 
-  puts("Creating App Store Connect app #{APP_NAME}")
-  client.post(
-    "/v1/apps",
-    data: {
-      type: "apps",
-      attributes: {
-        bundleId: BUNDLE_ID,
-        name: APP_NAME,
-        primaryLocale: "zh-Hant",
-        sku: SKU
-      },
-      relationships: {
-        bundleId: {
-          data: {
-            type: "bundleIds",
-            id: bundle.fetch("id")
-          }
-        }
-      }
-    }
-  ).fetch("data")
+  existing
 end
 
 def create_iap(client, app)
@@ -175,8 +144,8 @@ rescue StandardError => error
 end
 
 client = AppStoreConnectClient.new
-bundle = create_bundle_id(client)
-app = create_app(client, bundle)
+bundle = verify_bundle_id(client)
+app = verify_app(client)
 iap = create_iap(client, app)
 
 create_iap_localization(

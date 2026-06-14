@@ -7,6 +7,7 @@ default_platform(:ios)
 platform :ios do
   root = File.expand_path("..", __dir__)
   app_identifier = "com.yushang.poseframe3d"
+  app_version = "1.1"
   team_id = "7H7ZUG2WX8"
   api_key_path = File.expand_path("../../永久列管/AuthKey_WZBYHD6QVD.p8", __dir__)
   output_dir = File.join(root, "Build")
@@ -52,6 +53,7 @@ platform :ios do
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
+      app_version: app_version,
       metadata_path: metadata_path,
       screenshots_path: screenshots_path,
       skip_binary_upload: true,
@@ -69,6 +71,7 @@ platform :ios do
   lane :build_ipa do
     verify
     ensure_profile
+    increment_version_number(version_number: app_version, xcodeproj: xcodeproj_path)
     increment_build_number(xcodeproj: xcodeproj_path)
     build_app(
       project: xcodeproj_path,
@@ -99,6 +102,7 @@ platform :ios do
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
+      app_version: app_version,
       ipa: ipa_path,
       metadata_path: metadata_path,
       screenshots_path: screenshots_path,
@@ -120,6 +124,7 @@ platform :ios do
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
+      app_version: app_version,
       ipa: ipa_path,
       metadata_path: metadata_path,
       screenshots_path: screenshots_path,
@@ -141,6 +146,7 @@ platform :ios do
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
+      app_version: app_version,
       ipa: ipa_path,
       skip_binary_upload: false,
       skip_metadata: true,
@@ -152,12 +158,41 @@ platform :ios do
     )
   end
 
+  desc "Submit the already uploaded App Store version for review without rebuilding or reuploading assets."
+  lane :submit_review do
+    ensure_asc_records
+    verify
+    deliver(
+      api_key: api_key.call,
+      app_identifier: app_identifier,
+      app_version: app_version,
+      build_number: get_build_number(xcodeproj: xcodeproj_path),
+      metadata_path: metadata_path,
+      screenshots_path: screenshots_path,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: true,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false,
+        export_compliance_encryption_updated: false,
+        content_rights_contains_third_party_content: false,
+        content_rights_has_rights: true
+      }
+    )
+  end
+
   desc "Upload all App Store material and submit the app version for review."
   lane :release do
     upload
     deliver(
       api_key: api_key.call,
       app_identifier: app_identifier,
+      app_version: app_version,
       metadata_path: metadata_path,
       screenshots_path: screenshots_path,
       skip_binary_upload: true,
